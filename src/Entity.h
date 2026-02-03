@@ -3,6 +3,8 @@
 #include "Common.h"
 #include "Vector2.h"
 
+class Shader;
+
 class Entity {
 protected:
   std::string name;
@@ -15,7 +17,7 @@ public:
   virtual ~Entity() = default;
 
   virtual void update(float deltaTime);
-  virtual void render();
+  virtual void render(Shader& shader, int screenWidth, int screenHeight);
 
   void printInfo() const;
 

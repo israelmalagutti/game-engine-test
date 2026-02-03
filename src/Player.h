@@ -19,7 +19,7 @@ public:
 
   // Override parent methods
   void update(float deltaTime) override;
-  void render(Shader& shader, int screenWidth, int screenHeight);
+  void render(Shader& shader, int screenWidth, int screenHeight) override;
 
   // Player-specific methods
   void move(const Vector2& direction);

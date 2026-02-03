@@ -15,7 +15,7 @@ public:
   Enemy(const std::string& name, float x, float y, int damage, float speed, Texture* texture);
 
   void update(float deltaTime) override;
-  void render(Shader& shader, int screenWidth, int screenHeight);
+  void render(Shader& shader, int screenWidth, int screenHeight) override;
 
   void setTarget(const Vector2& targetPos);
   

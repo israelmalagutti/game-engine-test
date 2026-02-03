@@ -18,17 +18,16 @@ A 2D vector represents a point or direction in 2D space.
 
 ### Vector2 Class
 
-```cpp
-// In Vector2.h
+```Vector2.h
 struct Vector2 {
-  float x, y;
+    float x, y;
 
-  Vector2() : x(0), y(0) {}
-  Vector2(float x, float y) : x(x), y(y) {}
+    Vector2() : x(0), y(0) {}
+    Vector2(float x, float y) : x(x), y(y) {}
 
-  void print() const {
-    std::cout << "(" << x << ", " << y << ")";
-  }
+    void print() const {
+        std::cout << "(" << x << ", " << y << ")";
+    }
 };
 ```
 
@@ -239,13 +238,19 @@ float scale[16] = {
 
 In `Sprite::draw()`, scale and translation are combined:
 
-```cpp
-float model[16] = {
-  size.x, 0,      0, 0,   // Scale X in column 0
-  0,      size.y, 0, 0,   // Scale Y in column 1
-  0,      0,      1, 0,   // Z unchanged
-  position.x, position.y, 0, 1  // Translation in column 3
-};
+```Sprite.cpp
+void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+    ...
+
+    float model[16] = {
+        size.x, 0,      0, 0,   // Scale X in column 0
+        0,      size.y, 0, 0,   // Scale Y in column 1
+        0,      0,      1, 0,   // Z unchanged
+        position.x, position.y, 0, 1  // Translation in column 3
+    };
+
+    ...
+}
 ```
 
 This transforms the sprite's local coordinates (0-1) to world coordinates.
@@ -329,14 +334,19 @@ What we want for 2D games:
 
 Maps screen coordinates to clip space:
 
-```cpp
-// In Sprite::draw()
-float projection[16] = {
-  2.0f / screenWidth,  0.0f,                  0.0f, 0.0f,
-  0.0f,               -2.0f / screenHeight,   0.0f, 0.0f,
-  0.0f,                0.0f,                 -1.0f, 0.0f,
- -1.0f,                1.0f,                  0.0f, 1.0f
-};
+```Sprite.cpp
+void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+    ...
+
+    float projection[16] = {
+        2.0f / screenWidth,  0.0f,                  0.0f, 0.0f,
+        0.0f,               -2.0f / screenHeight,   0.0f, 0.0f,
+        0.0f,                0.0f,                 -1.0f, 0.0f,
+       -1.0f,                1.0f,                  0.0f, 1.0f
+    };
+
+    ...
+}
 ```
 
 **Breaking it down:**
@@ -467,20 +477,18 @@ position.x += 5 * deltaTime;  // 5 units per second, always
 
 ### Velocity-Based Movement
 
-```cpp
-// In Player::update()
+```Player.cpp
 void Player::update(float deltaTime) {
-  position.x += velocity.x * deltaTime;
-  position.y += velocity.y * deltaTime;
+    position.x += velocity.x * deltaTime;
+    position.y += velocity.y * deltaTime;
 
-  // Apply friction
-  velocity = velocity * (1.0f - friction * deltaTime);
+    // Apply friction
+    velocity = velocity * (1.0f - friction * deltaTime);
 }
 
-// In Player::move()
 void Player::move(const Vector2& direction) {
-  velocity.x = direction.x * speed;
-  velocity.y = direction.y * speed;
+    velocity.x = direction.x * speed;
+    velocity.y = direction.y * speed;
 }
 ```
 

@@ -18,25 +18,25 @@ Classes encapsulate data (member variables) and behavior (member functions) into
 
 ### Structure
 
-```cpp
+```Entity.h
 class Entity {
 protected:           // Accessible by derived classes
-  std::string name;
-  Vector2 position;
-  bool isActive;
+    std::string name;
+    Vector2 position;
+    bool isActive;
 
 public:              // Accessible by anyone
-  Entity(const std::string& name, float x, float y);  // Constructor
-  virtual ~Entity() = default;                         // Virtual destructor
+    Entity(const std::string& name, float x, float y);  // Constructor
+    virtual ~Entity() = default;                         // Virtual destructor
 
-  // Member functions
-  void printInfo() const;  // const = doesn't modify object state
+    // Member functions
+    void printInfo() const;  // const = doesn't modify object state
 
-  // Getters (accessors)
-  std::string getName() const;
+    // Getters (accessors)
+    std::string getName() const;
 
-  // Setters (mutators)
-  void setPosition(const Vector2& newPosition);
+    // Setters (mutators)
+    void setPosition(const Vector2& newPosition);
 };
 ```
 
@@ -50,14 +50,16 @@ public:              // Accessible by anyone
 
 ### Constructor Initialization
 
-```cpp
-// In Entity.cpp - assignment in body (works but less efficient)
+```Entity.cpp
+// Assignment in body (works but less efficient)
 Entity::Entity(const std::string& name, float x, float y) {
-  this->name = name;
-  this->position = Vector2(x, y);
-  this->isActive = true;
+    this->name = name;
+    this->position = Vector2(x, y);
+    this->isActive = true;
 }
+```
 
+```Entity.cpp
 // Alternative: initializer list (preferred, more efficient)
 Entity::Entity(const std::string& name, float x, float y)
     : name(name), position(x, y), isActive(true) {}
@@ -73,19 +75,23 @@ Inheritance allows classes to derive from a base class, inheriting its interface
 
 ### Basic Inheritance
 
-```cpp
-// Base class
+```Entity.h
 class Entity {
 public:
-  virtual void update(float deltaTime);
-  virtual void render(Shader& shader, int screenWidth, int screenHeight);
-};
+    virtual void update(float deltaTime);
+    virtual void render(Shader& shader, int screenWidth, int screenHeight);
 
-// Derived class
+    ...
+};
+```
+
+```Player.h
 class Player : public Entity {
 public:
-  void update(float deltaTime) override;  // override = compiler checks signature
-  void render(Shader& shader, int screenWidth, int screenHeight) override;
+    void update(float deltaTime) override;  // override = compiler checks signature
+    void render(Shader& shader, int screenWidth, int screenHeight) override;
+
+    ...
 };
 ```
 
@@ -114,10 +120,12 @@ void render(Shader& shader, int width, int height) override;  // Safe
 
 Always make base class destructors virtual when using polymorphism:
 
-```cpp
+```Entity.h
 class Entity {
 public:
-  virtual ~Entity() = default;  // Ensures derived destructors are called
+    virtual ~Entity() = default;  // Ensures derived destructors are called
+
+    ...
 };
 ```
 
@@ -133,24 +141,32 @@ Smart pointers (C++11) automatically manage memory, preventing leaks and danglin
 
 Exclusive ownership - only one unique_ptr can own an object at a time.
 
-```cpp
+```Game.h
 #include <memory>
 
 class Game {
 private:
-  std::unique_ptr<Window> window;
-  std::unique_ptr<Player> player;
-  std::vector<std::unique_ptr<Enemy>> enemies;
+    std::unique_ptr<Window> window;
+    std::unique_ptr<Player> player;
+    std::vector<std::unique_ptr<Enemy>> enemies;
+
+    ...
 };
+```
 
-// Creating unique_ptr
-window = std::make_unique<Window>("Game", 800, 600);
+```Game.cpp
+Game::Game() {
+    // Creating unique_ptr
+    window = std::make_unique<Window>("Game", 800, 600);
 
-// Transferring ownership
-enemies.push_back(std::move(enemy));  // enemy is now nullptr
+    // Transferring ownership
+    enemies.push_back(std::move(enemy));  // enemy is now nullptr
 
-// Getting raw pointer (for APIs that need it)
-player = std::make_unique<Player>(400.0f, 300.0f, playerTexture.get());
+    // Getting raw pointer (for APIs that need it)
+    player = std::make_unique<Player>(400.0f, 300.0f, playerTexture.get());
+
+    ...
+}
 ```
 
 ### Key Operations
@@ -196,16 +212,22 @@ Vector2& ref = someVector;  // ref always refers to someVector
 
 ### Pointers
 
-```cpp
+```Sprite.h
 class Sprite {
 private:
-  Texture* texture;  // Can be null, can point to different objects
-};
+    Texture* texture;  // Can be null, can point to different objects
 
+    ...
+};
+```
+
+```Sprite.cpp
 Sprite::Sprite(Texture* texture) {
-  this->texture = texture;  // Store pointer
-  // Use -> to access members
-  this->size = Vector2(texture->getWidth(), texture->getHeight());
+    this->texture = texture;  // Store pointer
+    // Use -> to access members
+    this->size = Vector2(texture->getWidth(), texture->getHeight());
+
+    ...
 }
 ```
 
@@ -231,8 +253,7 @@ In this project, `Texture*` is used because:
 
 Declare a class exists without including its full definition. Reduces compilation dependencies.
 
-```cpp
-// Entity.h
+```Entity.h
 #pragma once
 
 #include "Common.h"
@@ -242,7 +263,9 @@ class Shader;  // Forward declaration - no #include "Shader.h" needed
 
 class Entity {
 public:
-  virtual void render(Shader& shader, int w, int h);  // Only need declaration
+    virtual void render(Shader& shader, int w, int h);  // Only need declaration
+
+    ...
 };
 ```
 
@@ -303,12 +326,14 @@ With guards, the second inclusion is skipped entirely.
 
 ### Const Member Functions
 
-```cpp
+```Entity.h
 class Entity {
 public:
-  std::string getName() const;  // Promises not to modify object
-  Vector2 getPosition() const;
-  bool getIsActive() const;
+    std::string getName() const;  // Promises not to modify object
+    Vector2 getPosition() const;
+    bool getIsActive() const;
+
+    ...
 };
 ```
 
@@ -335,17 +360,17 @@ Allows passing temporaries and prevents accidental modification.
 
 `this` is an implicit pointer to the current object instance.
 
-```cpp
+```Entity.cpp
 Entity::Entity(const std::string& name, float x, float y) {
-  this->name = name;  // Disambiguate member from parameter
-  this->position = Vector2(x, y);
+    this->name = name;  // Disambiguate member from parameter
+    this->position = Vector2(x, y);
 }
 ```
 
 When names don't conflict, `this->` is optional:
 
-```cpp
+```Entity.cpp
 void Entity::setActive(bool active) {
-  isActive = active;  // Equivalent to: this->isActive = active;
+    isActive = active;  // Equivalent to: this->isActive = active;
 }
 ```

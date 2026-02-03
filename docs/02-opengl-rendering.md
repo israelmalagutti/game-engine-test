@@ -25,23 +25,34 @@ OpenGL is a graphics API that communicates with the GPU to render 2D/3D graphics
 
 Before using OpenGL, you need a context (created by SDL in this project):
 
-```cpp
-// In Window.cpp
-SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+```Window.cpp
+Window::Window(const std::string& title, int width, int height) {
+    ...
 
-glContext = SDL_GL_CreateContext(window);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+    glContext = SDL_GL_CreateContext(window);
+
+    ...
+}
 ```
 
 ### GLAD Loader
 
 OpenGL function pointers must be loaded at runtime. GLAD handles this:
 
-```cpp
-// Load all OpenGL functions
-if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-  std::cerr << "Failed to initialize GLAD" << std::endl;
+```Window.cpp
+Window::Window(const std::string& title, int width, int height) {
+    ...
+
+    // Load all OpenGL functions
+    if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+    }
+
+    ...
 }
 ```
 
@@ -77,25 +88,27 @@ OpenGL uses buffer objects to store vertex data on the GPU.
 
 Stores raw vertex data (positions, texture coordinates, etc.):
 
-```cpp
-// In Sprite::setupMesh()
-float vertices[] = {
-  // pos      // tex coords
-  0.0f, 1.0f, 0.0f, 1.0f,  // top-left
-  1.0f, 0.0f, 1.0f, 0.0f,  // bottom-right
-  0.0f, 0.0f, 0.0f, 0.0f,  // bottom-left
-  0.0f, 1.0f, 0.0f, 1.0f,  // top-left
-  1.0f, 1.0f, 1.0f, 1.0f,  // top-right
-  1.0f, 0.0f, 1.0f, 0.0f,  // bottom-right
-};
+```Sprite.cpp
+void Sprite::setupMesh() {
+    float vertices[] = {
+        // pos      // tex coords
+        0.0f, 1.0f, 0.0f, 1.0f,  // top-left
+        1.0f, 0.0f, 1.0f, 0.0f,  // bottom-right
+        0.0f, 0.0f, 0.0f, 0.0f,  // bottom-left
+        0.0f, 1.0f, 0.0f, 1.0f,  // top-left
+        1.0f, 1.0f, 1.0f, 1.0f,  // top-right
+        1.0f, 0.0f, 1.0f, 0.0f,  // bottom-right
+    };
 
-GLuint VBO;
-glGenBuffers(1, &VBO);                    // Create buffer
-glBindBuffer(GL_ARRAY_BUFFER, VBO);       // Bind as active
-glBufferData(GL_ARRAY_BUFFER,             // Upload data
-             sizeof(vertices),
-             vertices,
-             GL_STATIC_DRAW);
+    glGenBuffers(1, &VBO);                    // Create buffer
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);       // Bind as active
+    glBufferData(GL_ARRAY_BUFFER,             // Upload data
+                 sizeof(vertices),
+                 vertices,
+                 GL_STATIC_DRAW);
+
+    ...
+}
 ```
 
 `GL_STATIC_DRAW` hints that data won't change frequently.
@@ -104,25 +117,30 @@ glBufferData(GL_ARRAY_BUFFER,             // Upload data
 
 Stores the configuration of vertex attributes - how to interpret VBO data:
 
-```cpp
-GLuint VAO;
-glGenVertexArrays(1, &VAO);
-glBindVertexArray(VAO);
+```Sprite.cpp
+void Sprite::setupMesh() {
+    ...
 
-// Configure attribute 0: position (2 floats)
-glVertexAttribPointer(0,                    // Attribute index
-                      2,                    // Number of components
-                      GL_FLOAT,             // Data type
-                      GL_FALSE,             // Normalize?
-                      4 * sizeof(float),    // Stride (bytes between vertices)
-                      (void*)0);            // Offset
-glEnableVertexAttribArray(0);
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
 
-// Configure attribute 1: texture coordinates (2 floats)
-glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
-                      4 * sizeof(float),
-                      (void*)(2 * sizeof(float)));  // Offset past position
-glEnableVertexAttribArray(1);
+    // Configure attribute 0: position (2 floats)
+    glVertexAttribPointer(0,                    // Attribute index
+                          2,                    // Number of components
+                          GL_FLOAT,             // Data type
+                          GL_FALSE,             // Normalize?
+                          4 * sizeof(float),    // Stride (bytes between vertices)
+                          (void*)0);            // Offset
+    glEnableVertexAttribArray(0);
+
+    // Configure attribute 1: texture coordinates (2 floats)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(float),
+                          (void*)(2 * sizeof(float)));  // Offset past position
+    glEnableVertexAttribArray(1);
+
+    ...
+}
 ```
 
 ### Memory Layout
@@ -200,34 +218,41 @@ void main() {
 
 ### Shader Class Usage
 
-```cpp
-// In Shader.cpp
+```Shader.h
 class Shader {
 public:
-  GLuint ID;  // Program ID
+    GLuint ID;  // Program ID
 
-  Shader(const char* vertexPath, const char* fragmentPath);
+    Shader(const char* vertexPath, const char* fragmentPath);
 
-  void use() { glUseProgram(ID); }
+    void use() { glUseProgram(ID); }
 
-  void setInt(const std::string& name, int value);
-  void setMat4(const std::string& name, const float* value);
+    void setInt(const std::string& name, int value);
+    void setMat4(const std::string& name, const float* value);
 };
+```
 
-// Setting uniforms
-shader.setMat4("projection", projection);
-shader.setMat4("model", model);
-shader.setInt("spriteTexture", 0);  // Texture unit 0
+```Sprite.cpp
+void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+    ...
+
+    // Setting uniforms
+    shader.setMat4("projection", projection);
+    shader.setMat4("model", model);
+    shader.setInt("spriteTexture", 0);  // Texture unit 0
+
+    ...
+}
 ```
 
 ### Uniform Variables
 
 Uniforms are global variables passed from CPU to shader:
 
-```cpp
+```Shader.cpp
 void Shader::setMat4(const std::string& name, const float* value) {
-  GLint location = glGetUniformLocation(ID, name.c_str());
-  glUniformMatrix4fv(location, 1, GL_FALSE, value);
+    GLint location = glGetUniformLocation(ID, name.c_str());
+    glUniformMatrix4fv(location, 1, GL_FALSE, value);
 }
 ```
 
@@ -239,45 +264,53 @@ Textures are images mapped onto geometry.
 
 ### Loading a Texture
 
-```cpp
-// In Texture.cpp (using SDL_image)
-SDL_Surface* surface = IMG_Load(filepath.c_str());
+```Texture.cpp
+Texture::Texture(const std::string& filepath) {
+    SDL_Surface* surface = IMG_Load(filepath.c_str());
 
-GLuint textureID;
-glGenTextures(1, &textureID);
-glBindTexture(GL_TEXTURE_2D, textureID);
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
 
-// Upload pixel data
-glTexImage2D(GL_TEXTURE_2D,
-             0,                    // Mipmap level
-             GL_RGBA,              // Internal format
-             surface->w, surface->h,
-             0,                    // Border (must be 0)
-             GL_RGBA,              // Source format
-             GL_UNSIGNED_BYTE,     // Source data type
-             surface->pixels);
+    // Upload pixel data
+    glTexImage2D(GL_TEXTURE_2D,
+                 0,                    // Mipmap level
+                 GL_RGBA,              // Internal format
+                 surface->w, surface->h,
+                 0,                    // Border (must be 0)
+                 GL_RGBA,              // Source format
+                 GL_UNSIGNED_BYTE,     // Source data type
+                 surface->pixels);
 
-// Set filtering
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // Set filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    ...
+}
 ```
 
 ### Texture Units
 
 OpenGL has multiple texture units (slots) for using multiple textures:
 
-```cpp
+```Texture.cpp
 void Texture::bind(unsigned int unit) {
-  glActiveTexture(GL_TEXTURE0 + unit);  // Activate unit
-  glBindTexture(GL_TEXTURE_2D, textureID);
+    glActiveTexture(GL_TEXTURE0 + unit);  // Activate unit
+    glBindTexture(GL_TEXTURE_2D, textureID);
 }
 ```
 
 In the shader, `sampler2D` reads from a texture unit:
 
-```cpp
-shader.setInt("spriteTexture", 0);  // Use texture unit 0
-texture->bind(0);                    // Bind our texture to unit 0
+```Sprite.cpp
+void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+    ...
+
+    shader.setInt("spriteTexture", 0);  // Use texture unit 0
+    texture->bind(0);                    // Bind our texture to unit 0
+
+    ...
+}
 ```
 
 ### Texture Coordinates
@@ -307,14 +340,19 @@ We need matrices to transform between them.
 
 Maps pixel coordinates to OpenGL's -1 to 1 range (for 2D rendering):
 
-```cpp
-// In Sprite::draw()
-float projection[16] = {
-  2.0f / screenWidth,  0.0f,                  0.0f, 0.0f,
-  0.0f,               -2.0f / screenHeight,   0.0f, 0.0f,
-  0.0f,                0.0f,                 -1.0f, 0.0f,
- -1.0f,                1.0f,                  0.0f, 1.0f
-};
+```Sprite.cpp
+void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+    ...
+
+    float projection[16] = {
+        2.0f / screenWidth,  0.0f,                  0.0f, 0.0f,
+        0.0f,               -2.0f / screenHeight,   0.0f, 0.0f,
+        0.0f,                0.0f,                 -1.0f, 0.0f,
+       -1.0f,                1.0f,                  0.0f, 1.0f
+    };
+
+    ...
+}
 ```
 
 This matrix:
@@ -326,13 +364,19 @@ This matrix:
 
 Positions and scales individual sprites:
 
-```cpp
-float model[16] = {
-  size.x,     0.0f,       0.0f, 0.0f,  // Scale X
-  0.0f,       size.y,     0.0f, 0.0f,  // Scale Y
-  0.0f,       0.0f,       1.0f, 0.0f,  // Scale Z (unused in 2D)
-  position.x, position.y, 0.0f, 1.0f   // Translation
-};
+```Sprite.cpp
+void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+    ...
+
+    float model[16] = {
+        size.x,     0.0f,       0.0f, 0.0f,  // Scale X
+        0.0f,       size.y,     0.0f, 0.0f,  // Scale Y
+        0.0f,       0.0f,       1.0f, 0.0f,  // Scale Z (unused in 2D)
+        position.x, position.y, 0.0f, 1.0f   // Translation
+    };
+
+    ...
+}
 ```
 
 ### Matrix Multiplication Order
@@ -354,10 +398,15 @@ Order matters! Applied right-to-left:
 
 ### Enabling Blending
 
-```cpp
-// In Window.cpp
-glEnable(GL_BLEND);
-glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+```Window.cpp
+Window::Window(const std::string& title, int width, int height) {
+    ...
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    ...
+}
 ```
 
 ### Blend Equation
@@ -381,22 +430,22 @@ This achieves standard alpha blending:
 
 Putting it all together in `Sprite::draw()`:
 
-```cpp
+```Sprite.cpp
 void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
-  shader.use();                              // 1. Activate shader program
+    shader.use();                              // 1. Activate shader program
 
-  // 2. Set uniforms
-  shader.setMat4("projection", projection);
-  shader.setMat4("model", model);
-  shader.setInt("spriteTexture", 0);
+    // 2. Set uniforms
+    shader.setMat4("projection", projection);
+    shader.setMat4("model", model);
+    shader.setInt("spriteTexture", 0);
 
-  texture->bind(0);                          // 3. Bind texture to unit 0
+    texture->bind(0);                          // 3. Bind texture to unit 0
 
-  glBindVertexArray(VAO);                    // 4. Bind VAO (vertex config)
-  glDrawArrays(GL_TRIANGLES, 0, 6);          // 5. Draw 6 vertices as triangles
-  glBindVertexArray(0);                      // 6. Unbind (good practice)
+    glBindVertexArray(VAO);                    // 4. Bind VAO (vertex config)
+    glDrawArrays(GL_TRIANGLES, 0, 6);          // 5. Draw 6 vertices as triangles
+    glBindVertexArray(0);                      // 6. Unbind (good practice)
 
-  texture->unbind();                         // 7. Unbind texture
+    texture->unbind();                         // 7. Unbind texture
 }
 ```
 
@@ -416,19 +465,23 @@ Draws 6 vertices as 2 triangles (forming a quad).
 
 OpenGL resources must be explicitly deleted:
 
-```cpp
+```Sprite.cpp
 Sprite::~Sprite() {
-  glDeleteVertexArrays(1, &VAO);
-  glDeleteBuffers(1, &VBO);
-  glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
 }
+```
 
+```Texture.cpp
 Texture::~Texture() {
-  glDeleteTextures(1, &textureID);
+    glDeleteTextures(1, &textureID);
 }
+```
 
+```Shader.cpp
 Shader::~Shader() {
-  glDeleteProgram(ID);
+    glDeleteProgram(ID);
 }
 ```
 

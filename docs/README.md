@@ -69,6 +69,15 @@ Mathematical foundations for 2D games:
 - Common game math (distance, lerp, clamp)
 - Frame-rate independent movement
 
+### [08 - Camera Systems](./08-camera-systems.md)
+Camera and viewport management:
+- What is a camera in games
+- World vs screen coordinate systems
+- Camera following and positioning
+- World boundary clamping
+- Integration with rendering pipeline
+- Tile-based game considerations
+
 ---
 
 ## Quick Reference
@@ -109,5 +118,6 @@ ai-context/    # This documentation
 3. **[SDL2 Integration](./03-sdl2-integration.md)** - Window and input handling
 4. **[OpenGL Rendering](./02-opengl-rendering.md)** - Graphics programming
 5. **[2D Math](./07-2d-math.md)** - Vectors and transformations
-6. **[Build System](./05-build-system.md)** - Compilation details
-7. **[OpenGL Loaders](./06-opengl-loaders.md)** - GLAD specifics
+6. **[Camera Systems](./08-camera-systems.md)** - Viewport and world boundaries
+7. **[Build System](./05-build-system.md)** - Compilation details
+8. **[OpenGL Loaders](./06-opengl-loaders.md)** - GLAD specifics

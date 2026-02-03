@@ -125,10 +125,16 @@ GLAD is a modern OpenGL loader that generates code specifically for your needs.
 
 ### Initialization
 
-```cpp
-// Simple, no hacks needed
-if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-    std::cerr << "Failed to initialize GLAD" << std::endl;
+```Window.cpp
+Window::Window(const std::string& title, int width, int height) {
+    ...
+
+    // Simple, no hacks needed
+    if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+    }
+
+    ...
 }
 ```
 
@@ -227,12 +233,14 @@ CXXFLAGS = ... -I./include
 
 Both GLAD and GLEW must be included before any other OpenGL headers:
 
-```cpp
+```Common.h
 // Correct
 #include <glad/gl.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+```
 
+```Common.h
 // Wrong - will cause conflicts
 #include <SDL2/SDL_opengl.h>
 #include <glad/gl.h>
@@ -325,13 +333,19 @@ if (GLEW_ARB_debug_output) {
 - Wrong load function passed
 
 **Fix:**
-```cpp
-// Ensure context exists and is current
-SDL_GL_CreateContext(window);  // Create
-// SDL automatically makes it current
+```Window.cpp
+Window::Window(const std::string& title, int width, int height) {
+    ...
 
-// Then load GLAD
-gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress);
+    // Ensure context exists and is current
+    SDL_GL_CreateContext(window);  // Create
+    // SDL automatically makes it current
+
+    // Then load GLAD
+    gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress);
+
+    ...
+}
 ```
 
 ### Functions are NULL
@@ -351,8 +365,7 @@ if (GLVersion.major < 3 || (GLVersion.major == 3 && GLVersion.minor < 3)) {
 **Cause:** Multiple OpenGL headers included
 
 **Fix:** Include glad first, ensure consistent header order:
-```cpp
-// In Common.h
+```Common.h
 #pragma once
 
 #include <glad/gl.h>    // Always first!

@@ -2,13 +2,13 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic
+CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -I./include
 
 # Libraries
-LIBS = -lSDL2 -lSDL2_image -lGLEW -lGL
+LIBS = -lSDL2 -lSDL2_image -lGL
 
 # Find all source files
-SOURCES = $(wildcard src/*.cpp)
+SOURCES = $(wildcard src/*.cpp) src/glad.c
 
 # Output binary
 TARGET = game

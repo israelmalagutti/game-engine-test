@@ -54,11 +54,9 @@ Window::Window(const std::string& title, int width, int height) {
     return;
   }
 
-  // Initialize GLEW
-  glewExperimental = GL_TRUE;
-  GLenum glewError = glewInit();
-  if (glewError != GLEW_OK) {
-    std::cerr << "Failed to initialize GLEW: " << glewGetErrorString(glewError) << std::endl;
+  // Initialize GLAD
+  if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
+    std::cerr << "Failed to initialize GLAD" << std::endl;
     open = false;
     return;
   }

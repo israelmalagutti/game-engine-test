@@ -10,7 +10,7 @@
 #include <sstream>
 
 // OpenGL (must come before SDL_opengl)
-#include <GL/glew.h>
+#include <glad/gl.h>
 
 // SDL2
 #include <SDL2/SDL.h>

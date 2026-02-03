@@ -1,42 +1,42 @@
 #include "Player.h"
-#include "Vector2.h"
-#include <ostream>
 
-Player::Player(float x, float y) : Entity("Player", x, y) {
+Player::Player(float x, float y, Texture* texture) : Entity("Player", x, y) {
   health = 100;
   maxHealth = 100;
-  speed = 5.0f;
+  speed = 200.0f; // Pixels per second
+  velocity = Vector2(0, 0);
+
+  sprite = std::make_unique<Sprite>(texture);
+  sprite->setSize(Vector2(64, 64));
 }
 
-void Player::update() {
+void Player::update(float deltaTime) {
   if (!isActive) return;
 
-  // Player update logic would go here
-  // (input handling, physics, etc.)
+  position = position + velocity * speed * deltaTime;
+  velocity = Vector2(0, 0);
+
+  // Update sprite position to match entity
+  sprite->setPosition(position);
 }
 
-void Player::render() {
+void Player::render(Shader& shader, int screenWidth, int screenHeight) {
   if (!isActive) return;
-
-  std::cout << "[RENDER] ";
-  printInfo();
-  std::cout << "Health: " << health << "/" << maxHealth << std::endl;
+  sprite->draw(shader, screenWidth, screenHeight);
 }
 
 void Player::move(const Vector2& direction) {
-  // direction * speed gives us velocity
-  // then we add it to position
-  position = position + (direction * speed);
+  velocity = direction;
 }
 
 void Player::takeDamage(int damage) {
   health -= damage;
-  std::cout << name << " took " << damage << " damage!" << std::endl;
+  std::cout << name << "Player took " << damage << " damage!" << std::endl;
 
   if (health <= 0) {
     health = 0;
     isActive = false;
-    std::cout << name << " has died!" << std::endl;
+    std::cout << "Player has died!" << std::endl;
   }
 }
 
@@ -45,7 +45,6 @@ void Player::heal(int amount) {
   if (health > maxHealth) {
     health = maxHealth;
   }
-  std::cout << name << " healed for " << amount << "!" << std::endl;
 }
 
 int Player::getHealth() const {
@@ -54,4 +53,8 @@ int Player::getHealth() const {
 
 float Player::getSpeed() const {
   return speed;
+}
+
+bool Player::isDead() const {
+  return health <= 0;
 }

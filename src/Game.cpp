@@ -1,36 +1,86 @@
+#include <SDL2/SDL_stdinc.h>
+#include <SDL2/SDL_timer.h>
+#include <algorithm>
+
 #include "Game.h"
-#include <iterator>
 
-// Member initializer list- initializes player and enemy before constructor body runs
-Game::Game()
-  : player(100.0f, 100.0f),
-    enemy("Goblin", 50.0f, 40.0f, 15)
-
-{
+Game::Game() {
   isRunning = false;
-  frameCount = 0;
-  std::cout << "=== Game Initialized ===" << std::endl;
+  lastFrameTime = 0;
+
+  //  Create window
+  window = std::make_unique<Window>("Game Engine", 800, 600);
+  if (!window->isOpen()) {
+    std::cerr << "Failed to create window!" << std::endl;
+    return;
+  }
+
+  // Create shader
+  spriteShader = std::make_unique<Shader>("shaders/sprite.vert", "shaders/sprite.frag");
+
+  // Create input handler
+  input = std::make_unique<Input>();
+
+  // Load Textures
+  playerTexture = std::make_unique<Texture>("assets/player.png");
+  enemyTexture = std::make_unique<Texture>("assets/enemy.png");
+
+  // Create player
+  player = std::make_unique<Player>(400.0f, 300.0f, playerTexture.get());
+
+  std::cout << "=== Game Intiliazed ===" << std::endl;
+};
+
+Game::~Game() {
+  std::cout << "=== Game destroyed ===" << std::endl;
+}
+
+void Game::spawnEnemy(const std::string& name, float x, float y, int damage, float speed) {
+    // Create a new enemy and add it to our list
+    auto enemy = std::make_unique<Enemy>(name, x, y, damage, speed, enemyTexture.get());
+    // Move the enemy into our vector
+    enemies.push_back(std::move(enemy));
+    std::cout << "Spawned: " << name << " at (" << x << ", " << y << ")" << std::endl;
+}
+
+void Game::removeDeadEntities() {
+  // Remove all interactive enemies using erase-remove idiom
+  enemies.erase(
+      std::remove_if(
+        enemies.begin(),
+        enemies.end(),
+        [](const std::unique_ptr<Enemy>& e) {
+          return !e->getIsActive();
+        }
+      ),
+
+      enemies.end()
+  );
 }
 
 void Game::run() {
   isRunning = true;
-  std::cout << "=== Game Starting ===" << std::endl;
+  lastFrameTime = SDL_GetTicks();
 
-  while (isRunning) {
-    frameCount++;
-    std::cout << "\n--- Frame " << frameCount << " ---" << std::endl;
+  // Spawn some enemies
+  spawnEnemy("Goblin", 100.0f, 100.0f, 10, 30.0f);
+  spawnEnemy("Orc", 700.0f, 500.0f, 25, 20.0f);
+  spawnEnemy("Skeleton", 50.0f, 400.0f, 15, 40.0f);
+
+  while (window->isOpen() && isRunning) {
+    // Calculate delta time
+    Uint32 currentTime = SDL_GetTicks();
+    float deltaTime = (currentTime - lastFrameTime) / 1000.f;
+    lastFrameTime = currentTime;
+
+    if (deltaTime > 0.1f) {
+      deltaTime = 0.1f;
+    }
 
     processInput();
-    update();
+    update(deltaTime);
     render();
-
-    if (frameCount >= 5) {
-      stop();
-    }
   }
-
-  std::cout << "\n=== Game Endend ===" << std::endl;
-  std::cout << "Total frames: " << frameCount << std::endl;
 }
 
 void Game::stop() {
@@ -38,22 +88,50 @@ void Game::stop() {
 }
 
 void Game::processInput() {
-  player.move(Vector2(0.2f, 0.0f));
+  input->update();
+
+  if (input->isQuitRequested()) {
+    stop();
+    return;
+  }
+
+  // Get movement from WASD/Arrow keys
+  Vector2 movement = input->getMovementInput();
+  player->move(movement);
 }
 
-void Game::update() {
-  player.update();
-  enemy.update();
+void Game::update(float deltaTime) {
+  player->update(deltaTime);
 
-  if (!player.getIsActive()) {
-    std::cout << "Game over!" << std::endl;
+  // Update all enemies and make them chase the player
+  for (auto& enemy : enemies) {
+    enemy->setTarget(player->getPosition());
+    enemy->update(deltaTime);
+  }
+
+  // Clean up dead enemies
+  removeDeadEntities();
+
+  if (player->isDead()) {
+    std::cout << "GAME OVER!" << std::endl;
     stop();
   }
 }
 
 void Game::render() {
-  player.render();
-  enemy.render();
+  window->clear(0.1f, 0.1f, 0.2f);
+
+  int screenWidth = window->getWidth();
+  int screenHeight = window->getHeight();
+
+  // Draw all enemies
+  for (auto& enemy : enemies) {
+    enemy->render(*spriteShader, screenWidth, screenHeight);
+  }
+
+  // Draw player on top
+  player->render(*spriteShader, screenWidth, screenHeight);
+  window->swapBuffers();
 }
 
 bool Game::getIsRunning() const {

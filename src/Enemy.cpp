@@ -1,30 +1,44 @@
 #include "Enemy.h"
 
-Enemy::Enemy(const std::string& name, float x, float y, int damage)
-  : Entity(name, x, y) {
-  this->damage = damage;
+Enemy::Enemy(const std::string& name, float x, float y, int damage, float speed, Texture* texture)
+    : Entity(name, x, y) {
+    this->damage = damage;
+    this->speed = speed;
+    this->targetPosition = Vector2(0, 0);
+
+    sprite = std::make_unique<Sprite>(texture);
+    sprite->setSize(Vector2(48, 48));
 }
 
-void Enemy::update() {
+void Enemy::update(float deltaTime) {
   if (!isActive) return;
 
   // Move toward origin
-  float moveSpeed = 0.5f;
+  Vector2 direction = targetPosition - position;
+  float  distance = direction.length();
 
-  if (position.x > 0) position.x -= moveSpeed;
-  if (position.y > 0) position.y -= moveSpeed;
-
-  // Clamp to zero
-  if (position.x < 0) position.x = 0;
-  if (position.y < 0) position.y = 0;
+  // Only move if we're not already at the target
+  if (distance > 1.0f) {
+    // Normalize direction and move
+    Vector2 normalized = direction.normalized();
+    position = position + normalized * speed * deltaTime;
+    sprite->setPosition(position);
+  }
 }
 
-void Enemy::render() {
+void Enemy::render(Shader& shader, int screenWidth, int screenHeight) {
   if (!isActive) return;
+  sprite->draw(shader, screenWidth, screenHeight);
+}
 
-  std::cout << " Damage: " << damage << std::endl;
+void Enemy::setTarget(const Vector2& targetPos) {
+  targetPosition = targetPos;
 }
 
 int Enemy::getDamage() const {
   return damage;
+}
+
+float Enemy::getSpeed() const {
+  return speed;
 }

@@ -1,5 +1,4 @@
 #include "Entity.h"
-#include "Vector2.h"
 
 // Constructor Definition
 Entity::Entity(const std::string& name, float x, float y) {
@@ -8,8 +7,8 @@ Entity::Entity(const std::string& name, float x, float y) {
   this->isActive = true;
 }
 
-void Entity::update() {
-  // Base implementation does nothing
+void Entity::update(float deltaTime) {
+  (void)deltaTime;
 }
 
 void Entity::render() {

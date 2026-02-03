@@ -12,12 +12,9 @@ protected:
 public:
   // Constructor declaration
   Entity(const std::string& name, float x, float y);
-
-  // Virtual destructor
   virtual ~Entity() = default;
 
-  // Method declaration
-  virtual void update();
+  virtual void update(float deltaTime);
   virtual void render();
 
   void printInfo() const;

@@ -1,21 +1,31 @@
-# Compiler settings
+# Compiler
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra
 
-# Find all .cpp files in src/
+# Compiler flags
+CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic
+
+# Libraries
+LIBS = -lSDL2 -lSDL2_image -lGLEW -lGL
+
+# Find all source files
 SOURCES = $(wildcard src/*.cpp)
 
-# Output binary name
+# Output binary
 TARGET = game
 
-# Build the game
-all:
-	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET)
+# Default target
+all: $(TARGET)
 
-# Remove built files
+# Build the game
+$(TARGET): $(SOURCES)
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET) $(LIBS)
+
+# Clean build files
 clean:
 	rm -f $(TARGET)
 
 # Build and run
-run: all
+run: $(TARGET)
 	./$(TARGET)
+
+.PHONY: all clean run

@@ -37,7 +37,7 @@ Window::Window(const std::string& title, int width, int height) {
       SDL_WINDOWPOS_CENTERED,
       width,
       height,
-      SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+      SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
   );
 
   if (!window) {
@@ -103,6 +103,12 @@ bool Window::isOpen() const {
 
 void Window::close() {
   open = false;
+}
+
+void Window::handleResize(int newWidth, int newHeight) {
+  width = newWidth;
+  height = newHeight;
+  glViewport(0, 0, width, height);
 }
 
 int Window::getWidth() const {

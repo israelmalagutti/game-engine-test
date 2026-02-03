@@ -1,4 +1,16 @@
+# AI
+ai-context/
+.codex
+.claude
+.cursor
+
+AGENTS.md
+CLAUDE.md
+
+# Binaries
 bin/
 game
 
+# Temporary
 tmp/
+

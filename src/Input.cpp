@@ -7,19 +7,31 @@
 Input::Input() {
   keyboardState = SDL_GetKeyboardState(nullptr);
   quitRequested = false;
+  windowResized = false;
+  newWindowWidth = 0;
+  newWindowHeight = 0;
 }
 
 void Input::update() {
   SDL_Event event;
+  windowResized = false;
 
   while (SDL_PollEvent(&event)) {
     if (event.type == SDL_QUIT) {
       quitRequested = true;
     }
-  
+
     if (event.type == SDL_KEYDOWN) {
       if (event.key.keysym.sym == SDLK_ESCAPE) {
         quitRequested = true;
+      }
+    }
+
+    if (event.type == SDL_WINDOWEVENT) {
+      if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+        windowResized = true;
+        newWindowWidth = event.window.data1;
+        newWindowHeight = event.window.data2;
       }
     }
   }
@@ -34,6 +46,18 @@ bool Input::isKeyDown(SDL_Scancode key) const {
 
 bool Input::isQuitRequested() const {
   return quitRequested;
+}
+
+bool Input::wasWindowResized() const {
+  return windowResized;
+}
+
+int Input::getNewWindowWidth() const {
+  return newWindowWidth;
+}
+
+int Input::getNewWindowHeight() const {
+  return newWindowHeight;
 }
 
 Vector2 Input::getMovementInput() const {

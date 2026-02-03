@@ -24,6 +24,8 @@ public:
     bool isOpen() const;
     void close();
 
+    void handleResize(int newWidth, int newHeight);
+
     // Getters
     int getWidth() const;
     int getHeight() const;

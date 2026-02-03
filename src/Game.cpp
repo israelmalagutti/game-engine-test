@@ -95,6 +95,10 @@ void Game::processInput() {
     return;
   }
 
+  if (input->wasWindowResized()) {
+    window->handleResize(input->getNewWindowWidth(), input->getNewWindowHeight());
+  }
+
   // Get movement from WASD/Arrow keys
   Vector2 movement = input->getMovementInput();
   player->move(movement);

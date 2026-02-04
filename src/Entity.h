@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Camera.h"
 #include "Common.h"
 #include "Vector2.h"
 
+class Camera;
 class Shader;
 
 class Entity {
@@ -17,7 +19,7 @@ public:
   virtual ~Entity() = default;
 
   virtual void update(float deltaTime);
-  virtual void render(Shader& shader, int screenWidth, int screenHeight);
+  virtual void render(Shader& shader, const Camera& camera);
 
   void printInfo() const;
 

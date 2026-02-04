@@ -11,6 +11,9 @@ CLAUDE.md
 bin/
 game
 
+# Comp
+compile_commands.json
+
 # Temporary
 tmp/
-
+.cache

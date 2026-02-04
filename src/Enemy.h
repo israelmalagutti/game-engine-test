@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Camera.h"
 #include "Entity.h"
 #include "Sprite.h"
 #include "Shader.h"
@@ -15,7 +16,7 @@ public:
   Enemy(const std::string& name, float x, float y, int damage, float speed, Texture* texture);
 
   void update(float deltaTime) override;
-  void render(Shader& shader, int screenWidth, int screenHeight) override;
+  void render(Shader& shader, const Camera& camera) override;
 
   void setTarget(const Vector2& targetPos);
   

@@ -24,5 +24,5 @@ public:
     void setVec2(const std::string& name, float x, float y);
     void setVec3(const std::string& name, float x, float y, float z);
     void setVec4(const std::string& name, float x, float y, float z, float w);
-    void setMat4(const std::string& name, const float* matrix);
+    void setMat4(const std::string& name, const glm::mat4& matrix);
 };

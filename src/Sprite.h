@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Camera.h"
 #include "Common.h"
 #include "Texture.h"
 #include "Shader.h"
@@ -22,7 +23,7 @@ class Sprite{
     Sprite(Texture* texture);
     ~Sprite();
 
-    void draw(Shader& shader, int screenWidth, int screenHeight);
+    void draw(Shader& shader, const Camera& camera);
 
     void setPosition(const Vector2& pos);
     void setSize(const Vector2& size);

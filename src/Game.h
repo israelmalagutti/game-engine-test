@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Camera.h"
 #include "Common.h"
 #include "Enemy.h"
 #include "Input.h"
@@ -20,6 +21,8 @@ private:
 
   std::unique_ptr<Player> player;
   std::vector<std::unique_ptr<Enemy>> enemies;
+
+  std::unique_ptr<Camera> camera;
 
   bool isRunning;
   Uint32 lastFrameTime;

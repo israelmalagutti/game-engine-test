@@ -3,13 +3,133 @@
 This document covers how camera systems work in 2D games, including viewport management and world boundary clamping.
 
 ## Table of Contents
+- [GLM Setup](#glm-setup)
 - [What is a Camera?](#what-is-a-camera)
 - [Coordinate Systems](#coordinate-systems)
 - [Camera Position and Following](#camera-position-and-following)
 - [World to Screen Conversion](#world-to-screen-conversion)
 - [World Boundaries (Clamping)](#world-boundaries-clamping)
 - [Integration with Rendering](#integration-with-rendering)
+- [View Matrix Approach (MVP Pattern)](#view-matrix-approach-mvp-pattern)
 - [Tile-Based Considerations](#tile-based-considerations)
+
+---
+
+## GLM Setup
+
+**GLM** (OpenGL Mathematics) is the industry-standard math library for graphics programming. It provides matrix and vector types that match GLSL (shader language) types, making it much easier than manual `float[16]` arrays.
+
+### Installation
+
+On Arch Linux:
+```bash
+sudo pacman -S glm
+```
+
+On Ubuntu/Debian:
+```bash
+sudo apt install libglm-dev
+```
+
+### Including GLM
+
+Add to your `Common.h`:
+
+```cpp
+// Common.h
+#pragma once
+
+// Standard libs
+#include <iostream>
+#include <string>
+#include <vector>
+#include <memory>
+#include <cmath>
+#include <fstream>
+#include <sstream>
+
+// OpenGL (must come before SDL_opengl)
+#include <glad/gl.h>
+
+// SDL2
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
+#include <SDL2/SDL_image.h>
+
+// Math for OpenGL
+#include <glm/glm.hpp>              // Core types: vec2, vec3, vec4, mat4
+#include <glm/gtc/matrix_transform.hpp>  // glm::ortho, glm::translate, glm::scale
+#include <glm/gtc/type_ptr.hpp>     // glm::value_ptr for OpenGL uniform uploads
+```
+
+### Key GLM Types
+
+| GLM Type | GLSL Equivalent | Purpose |
+|----------|-----------------|---------|
+| `glm::vec2` | `vec2` | 2D position, size, direction |
+| `glm::vec3` | `vec3` | 3D position, RGB color |
+| `glm::vec4` | `vec4` | 4D position, RGBA color |
+| `glm::mat4` | `mat4` | 4x4 transformation matrix |
+
+### Key GLM Functions
+
+```cpp
+// Orthographic projection (2D)
+glm::mat4 proj = glm::ortho(left, right, bottom, top);
+
+// Translation matrix
+glm::mat4 trans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+
+// Scale matrix
+glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(sx, sy, 1.0f));
+
+// Combined: translate first, then scale
+glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+model = glm::scale(model, glm::vec3(width, height, 1.0f));
+
+// Get raw pointer for OpenGL uniform upload
+glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
+```
+
+### Updating Shader Class for GLM
+
+Add an overload in your Shader class to accept `glm::mat4`:
+
+```cpp
+// Shader.h
+#include "Common.h"
+
+class Shader {
+public:
+    // Existing method for raw float arrays
+    void setMat4(const std::string& name, const float* value);
+
+    // New method for glm::mat4
+    void setMat4(const std::string& name, const glm::mat4& matrix);
+};
+```
+
+```cpp
+// Shader.cpp
+void Shader::setMat4(const std::string& name, const glm::mat4& matrix) {
+    glUniformMatrix4fv(
+        glGetUniformLocation(ID, name.c_str()),
+        1,
+        GL_FALSE,
+        glm::value_ptr(matrix)
+    );
+}
+```
+
+### Why GLM Over Manual Arrays?
+
+| Manual `float[16]` | GLM `glm::mat4` |
+|--------------------|-----------------|
+| Error-prone index math | Named operations (`translate`, `scale`) |
+| Must remember column-major order | Handles ordering automatically |
+| No operator overloads | `*` for matrix multiplication |
+| Verbose and hard to read | Clean, readable code |
+| Matches no standard | Matches GLSL types exactly |
 
 ---
 
@@ -114,15 +234,32 @@ Screen coordinates are **relative** to the viewport.
 
 A 2D camera typically tracks:
 
-```Camera.h
+```cpp
+// Camera.h
+#include "Common.h"  // For glm types
+#include "Vector2.h"
+
 class Camera {
+private:
     Vector2 position;      // Center of the view in world coordinates
     int viewportWidth;     // Width of visible area (usually window width)
     int viewportHeight;    // Height of visible area
     Vector2 worldMin;      // Top-left bound of world
     Vector2 worldMax;      // Bottom-right bound of world
 
-    ...
+public:
+    Camera(int viewportWidth, int viewportHeight);
+
+    void setWorldBounds(float minX, float minY, float maxX, float maxY);
+    void setViewportSize(int width, int height);
+    void setPosition(const Vector2& pos);
+    void centerOn(const Vector2& target);
+
+    Vector2 getPosition() const;
+    int getViewportWidth() const;
+    int getViewportHeight() const;
+    Vector2 worldToScreen(const Vector2& worldPos) const;
+    glm::mat4 getViewMatrix() const;  // Returns view matrix using GLM
 };
 ```
 
@@ -138,13 +275,20 @@ void Camera::centerOn(const Vector2& target) {
 
 Call this each frame with the player's position:
 
-```Game.cpp
+```cpp
+// Game.cpp
 void Game::update(float deltaTime) {
-    ...
+    player->update(deltaTime);
 
-    camera.centerOn(player->getPosition());
+    for (auto& enemy : enemies) {
+        enemy->setTarget(player->getPosition());
+        enemy->update(deltaTime);
+    }
 
-    ...
+    // Center camera on player (with boundary clamping)
+    camera->centerOn(player->getPosition());
+
+    removeDeadEntities();
 }
 ```
 
@@ -309,18 +453,33 @@ Player appears off-center, but no void is visible!
 
 ### Edge Case: World Smaller Than Viewport
 
-If the world is smaller than the viewport, center the world:
+If the world is smaller than the viewport, center the world. Here's the complete `centerOn()` function with edge case handling:
 
-```Camera.cpp
+```cpp
+// Camera.cpp
 void Camera::centerOn(const Vector2& target) {
-    ...
+    position = target;
 
+    // Calculate valid range for camera center
+    float halfWidth = viewportWidth / 2.0f;
+    float halfHeight = viewportHeight / 2.0f;
+
+    float minX = worldMin.x + halfWidth;
+    float maxX = worldMax.x - halfWidth;
+    float minY = worldMin.y + halfHeight;
+    float maxY = worldMax.y - halfHeight;
+
+    // Clamp camera position to valid range
+    position.x = clamp(position.x, minX, maxX);
+    position.y = clamp(position.y, minY, maxY);
+
+    // Edge case: World narrower than viewport - center horizontally
     if (worldMax.x - worldMin.x < viewportWidth) {
-        // World narrower than viewport - center horizontally
         position.x = (worldMin.x + worldMax.x) / 2.0f;
     }
+
+    // Edge case: World shorter than viewport - center vertically
     if (worldMax.y - worldMin.y < viewportHeight) {
-        // World shorter than viewport - center vertically
         position.y = (worldMin.y + worldMax.y) / 2.0f;
     }
 }
@@ -332,18 +491,33 @@ void Camera::centerOn(const Vector2& target) {
 
 ### Current Rendering (No Camera)
 
-```Sprite.cpp
+```cpp
+// Sprite.cpp
 void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
-    ...
+    shader.use();
 
-    float model[16] = {
-        size.x, 0, 0, 0,
-        0, size.y, 0, 0,
-        0, 0, 1, 0,
-        position.x, position.y, 0, 1  // World position used directly
-    };
+    // Orthographic projection using GLM
+    // Maps pixel coordinates (0,0 top-left) to OpenGL's -1 to 1 range
+    // glm::ortho(left, right, bottom, top) - note bottom > top for Y-down
+    glm::mat4 projection = glm::ortho(
+        0.0f, static_cast<float>(screenWidth),   // left, right
+        static_cast<float>(screenHeight), 0.0f   // bottom, top (flipped for Y-down)
+    );
 
-    ...
+    // Model matrix: translate to position, then scale
+    // GLM builds matrices by chaining operations
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(position.x, position.y, 0.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+
+    shader.setMat4("projection", projection);
+    shader.setMat4("model", model);
+    shader.setInt("spriteTexture", 0);
+
+    texture->bind(0);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    texture->unbind();
 }
 ```
 
@@ -351,19 +525,36 @@ This works only when world coordinates = screen coordinates.
 
 ### With Camera Offset
 
-```Sprite.cpp
+```cpp
+// Sprite.cpp - with camera offset (CPU-side conversion)
 void Sprite::draw(Shader& shader, const Camera& camera) {
+    shader.use();
+
+    int viewportWidth = camera.getViewportWidth();
+    int viewportHeight = camera.getViewportHeight();
+
+    // Orthographic projection using GLM
+    glm::mat4 projection = glm::ortho(
+        0.0f, static_cast<float>(viewportWidth),
+        static_cast<float>(viewportHeight), 0.0f
+    );
+
     // Convert world position to screen position
     Vector2 screenPos = camera.worldToScreen(position);
 
-    float model[16] = {
-        size.x, 0, 0, 0,
-        0, size.y, 0, 0,
-        0, 0, 1, 0,
-        screenPos.x, screenPos.y, 0, 1  // Screen position
-    };
+    // Model matrix uses SCREEN position (after CPU conversion)
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(screenPos.x, screenPos.y, 0.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
 
-    ...
+    shader.setMat4("projection", projection);
+    shader.setMat4("model", model);
+    shader.setInt("spriteTexture", 0);
+
+    texture->bind(0);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    texture->unbind();
 }
 ```
 
@@ -399,6 +590,281 @@ void Game::render() {
     window->swapBuffers();
 }
 ```
+
+---
+
+## View Matrix Approach (MVP Pattern)
+
+The "Alternative: View Matrix" mentioned above is actually the **standard approach** used in professional game engines. This section explains how it works and why it's preferable for larger projects.
+
+### The MVP Pipeline
+
+**MVP** stands for **Model-View-Projection**, which is the standard transformation pipeline in 3D and 2D graphics:
+
+```
+Final Position = Projection × View × Model × Vertex
+                     ↑          ↑       ↑
+                     │          │       └── Object's position/scale/rotation in world
+                     │          └────────── Camera's inverse transform
+                     └───────────────────── Converts to normalized device coordinates
+```
+
+#### Web Development Analogy
+
+Think of it like CSS transforms, but applied in a specific order:
+
+| MVP Stage | CSS Equivalent | Purpose |
+|-----------|----------------|---------|
+| Model | `transform: translate(100px, 50px) scale(2)` | Position object in world |
+| View | `transform: translate(-scrollX, -scrollY)` | "Move world" opposite to camera |
+| Projection | `viewport` meta tag / CSS viewport units | Map to screen coordinates |
+
+### Current Approach: CPU-Side Conversion
+
+Our current implementation uses `worldToScreen()` to convert positions on the CPU before sending to the GPU:
+
+```
+Current Pipeline:
+1. Entity has world position (e.g., 500, 400)
+2. CPU calls worldToScreen() → gets screen position (e.g., 320, 240)
+3. Model matrix built with SCREEN position
+4. GPU computes: Projection × Model × Vertex
+```
+
+```cpp
+// Sprite.cpp - Current approach (CPU-side conversion)
+void Sprite::draw(Shader& shader, const Camera& camera) {
+    shader.use();
+
+    int viewportWidth = camera.getViewportWidth();
+    int viewportHeight = camera.getViewportHeight();
+
+    // Orthographic projection using GLM
+    glm::mat4 projection = glm::ortho(
+        0.0f, static_cast<float>(viewportWidth),
+        static_cast<float>(viewportHeight), 0.0f
+    );
+
+    // CPU converts world position to screen position
+    Vector2 screenPos = camera.worldToScreen(position);
+
+    // Model matrix uses SCREEN position (after CPU conversion)
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(screenPos.x, screenPos.y, 0.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+
+    shader.setMat4("projection", projection);
+    shader.setMat4("model", model);
+    shader.setInt("spriteTexture", 0);
+
+    texture->bind(0);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    texture->unbind();
+}
+```
+
+### View Matrix Approach: GPU-Side Conversion
+
+With a view matrix, the GPU handles the camera transformation:
+
+```
+MVP Pipeline:
+1. Entity has world position (e.g., 500, 400)
+2. Model matrix built with WORLD position (no conversion)
+3. View matrix represents camera transform
+4. GPU computes: Projection × View × Model × Vertex
+```
+
+```cpp
+// Sprite.cpp - MVP approach (GPU-side conversion)
+void Sprite::draw(Shader& shader, const Camera& camera) {
+    shader.use();
+
+    int viewportWidth = camera.getViewportWidth();
+    int viewportHeight = camera.getViewportHeight();
+
+    // Orthographic projection using GLM
+    glm::mat4 projection = glm::ortho(
+        0.0f, static_cast<float>(viewportWidth),
+        static_cast<float>(viewportHeight), 0.0f
+    );
+
+    // View matrix from camera (handles camera transformation)
+    glm::mat4 view = camera.getViewMatrix();
+
+    // Model matrix uses WORLD position (no CPU conversion needed!)
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(position.x, position.y, 0.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+
+    shader.setMat4("projection", projection);
+    shader.setMat4("view", view);
+    shader.setMat4("model", model);
+    shader.setInt("spriteTexture", 0);
+
+    texture->bind(0);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    texture->unbind();
+}
+```
+
+### Constructing the View Matrix
+
+For a 2D camera, the view matrix is a **translation matrix** that moves everything opposite to the camera position, then offsets by half the viewport (to center the camera):
+
+```cpp
+// Camera.cpp
+glm::mat4 Camera::getViewMatrix() const {
+    // Translation to apply:
+    // tx = -cameraX + viewportWidth/2
+    // ty = -cameraY + viewportHeight/2
+
+    float tx = -position.x + viewportWidth / 2.0f;
+    float ty = -position.y + viewportHeight / 2.0f;
+
+    // GLM handles column-major order automatically
+    return glm::translate(glm::mat4(1.0f), glm::vec3(tx, ty, 0.0f));
+}
+```
+
+This is **much simpler** than manual array construction. GLM's `glm::translate()` creates the exact same matrix that we previously built by hand:
+
+```cpp
+// What GLM creates internally (column-major):
+// [1  0  0  tx]
+// [0  1  0  ty]
+// [0  0  1  0 ]
+// [0  0  0  1 ]
+```
+
+#### Why This Formula?
+
+The view matrix translation is **exactly equivalent** to the `worldToScreen()` formula:
+
+```
+worldToScreen formula:
+    screenX = worldX - cameraX + viewportWidth/2
+    screenY = worldY - cameraY + viewportHeight/2
+
+View matrix translation:
+    tx = -cameraX + viewportWidth/2
+    ty = -cameraY + viewportHeight/2
+
+When GPU multiplies: view * model * vertex
+    resultX = worldX + tx = worldX - cameraX + viewportWidth/2  ✓ Same!
+    resultY = worldY + ty = worldY - cameraY + viewportHeight/2  ✓ Same!
+```
+
+### Updated Vertex Shader
+
+To use the view matrix, the shader needs to include it in the transformation:
+
+```glsl
+// sprite.vert
+#version 330 core
+
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec2 aTexCoord;
+
+out vec2 TexCoord;
+
+uniform mat4 model;
+uniform mat4 view;        // NEW: Camera transform
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * model * vec4(aPos, 0.0, 1.0);
+    TexCoord = aTexCoord;
+}
+```
+
+### CPU vs GPU Approach Comparison
+
+| Aspect | CPU (worldToScreen) | GPU (View Matrix) |
+|--------|---------------------|-------------------|
+| Where conversion happens | C++ code | Vertex shader |
+| Model matrix contains | Screen position | World position |
+| Uniforms sent per frame | projection, model | projection, view, model |
+| View matrix updates | N/A | Once per frame |
+| Code clarity | Simple for beginners | Industry standard |
+
+### Why Use View Matrix?
+
+1. **Cleaner Separation of Concerns**
+   - Model matrix = "where is this object in the world?"
+   - View matrix = "where is the camera?"
+   - Projection matrix = "how do we map to the screen?"
+
+2. **Single Uniform Update for Camera**
+   - CPU approach: Every sprite recalculates screen position
+   - GPU approach: View matrix set once, applies to all sprites
+
+3. **Enables Batch Rendering**
+   - All sprites with the same texture can share uniforms
+   - GPU can draw thousands of sprites with one draw call
+
+4. **Required for Tilemaps**
+   - Drawing 100+ tiles? Setting view once is far more efficient
+   - Instanced rendering requires world positions, not screen positions
+
+5. **Standard Pattern**
+   - Every professional engine uses MVP
+   - Learning this prepares you for Unity, Unreal, Godot, etc.
+
+### Performance Example: Tilemap Rendering
+
+Consider rendering a 50x40 tile map (2000 tiles):
+
+**CPU Approach:**
+```cpp
+// Every tile needs CPU conversion - 2000 worldToScreen() calls!
+for (int y = 0; y < 40; y++) {
+    for (int x = 0; x < 50; x++) {
+        Vector2 worldPos(x * 32, y * 32);
+        Vector2 screenPos = camera.worldToScreen(worldPos);  // CPU conversion
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(screenPos.x, screenPos.y, 0.0f));
+        model = glm::scale(model, glm::vec3(32.0f, 32.0f, 1.0f));
+
+        shader.setMat4("model", model);
+        glBindVertexArray(tileVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+}
+```
+
+**GPU Approach:**
+```cpp
+// View matrix set once - GPU handles all camera transformations
+glm::mat4 view = camera.getViewMatrix();
+shader.setMat4("view", view);  // Set ONCE for all 2000 tiles
+
+for (int y = 0; y < 40; y++) {
+    for (int x = 0; x < 50; x++) {
+        // Model uses WORLD position - no CPU conversion needed!
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x * 32.0f, y * 32.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(32.0f, 32.0f, 1.0f));
+
+        shader.setMat4("model", model);
+        glBindVertexArray(tileVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+}
+```
+
+With instanced rendering (advanced), this becomes even more efficient - one draw call for all tiles.
+
+### When to Use Each Approach
+
+| Use Case | Recommended Approach |
+|----------|---------------------|
+| Learning / prototyping | CPU (worldToScreen) |
+| Small number of entities (<50) | Either works fine |
+| Tilemap rendering | GPU (View Matrix) |
+| Batch/instanced rendering | GPU (View Matrix) |
+| Professional projects | GPU (View Matrix) |
 
 ---
 
@@ -453,39 +919,65 @@ void Game::enterLevel(const Level& level) {
 ### Smooth vs Tile-Locked Camera
 
 **Smooth following** (used in action games):
-```Game.cpp
+```cpp
+// Game.cpp - Camera immediately follows player position
 void Game::update(float deltaTime) {
-    ...
+    player->update(deltaTime);
+
+    for (auto& enemy : enemies) {
+        enemy->setTarget(player->getPosition());
+        enemy->update(deltaTime);
+    }
+
+    // Camera instantly centers on player
     camera->centerOn(player->getPosition());
-    ...
+
+    removeDeadEntities();
 }
 ```
 
 **Tile-locked** (classic RPG style):
-```Game.cpp
+```cpp
+// Game.cpp - Camera snaps to tile grid positions
 void Game::update(float deltaTime) {
-    ...
-    // Snap camera to tile grid
-    int tileX = (int)(player->getPosition().x / tileSize);
-    int tileY = (int)(player->getPosition().y / tileSize);
-    camera->setPosition(tileX * tileSize, tileY * tileSize);
-    ...
+    player->update(deltaTime);
+
+    for (auto& enemy : enemies) {
+        enemy->setTarget(player->getPosition());
+        enemy->update(deltaTime);
+    }
+
+    // Snap camera to tile grid (e.g., 32x32 tiles)
+    int tileSize = 32;
+    int tileX = static_cast<int>(player->getPosition().x / tileSize);
+    int tileY = static_cast<int>(player->getPosition().y / tileSize);
+    camera->setPosition(Vector2(tileX * tileSize, tileY * tileSize));
+
+    removeDeadEntities();
 }
 ```
 
 **Lerped/smooth transition** (modern approach):
-```Game.cpp
+```cpp
+// Game.cpp - Camera smoothly interpolates toward player
 void Game::update(float deltaTime) {
-    ...
+    player->update(deltaTime);
+
+    for (auto& enemy : enemies) {
+        enemy->setTarget(player->getPosition());
+        enemy->update(deltaTime);
+    }
+
+    // Smooth camera follow using linear interpolation
     Vector2 target = player->getPosition();
     Vector2 current = camera->getPosition();
     float smoothing = 0.1f;  // Lower = smoother/slower
 
-    camera->setPosition(
-        lerp(current.x, target.x, smoothing),
-        lerp(current.y, target.y, smoothing)
-    );
-    ...
+    float newX = current.x + (target.x - current.x) * smoothing;
+    float newY = current.y + (target.y - current.y) * smoothing;
+    camera->setPosition(Vector2(newX, newY));
+
+    removeDeadEntities();
 }
 ```
 

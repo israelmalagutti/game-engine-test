@@ -1,19 +1,24 @@
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_timer.h>
 #include <algorithm>
+#include <memory>
 
 #include "Game.h"
+#include "Camera.h"
 
 Game::Game() {
   isRunning = false;
-  lastFrameTime = 0;
 
   //  Create window
-  window = std::make_unique<Window>("Game Engine", 800, 600);
+  window = std::make_unique<Window>("Game Engine", 1920, 1080);
   if (!window->isOpen()) {
     std::cerr << "Failed to create window!" << std::endl;
     return;
   }
+
+  // Create camera
+  camera = std::make_unique<Camera>(1920, 1080);
+  camera->setWorldBounds(0.0f, 0.0f, 2400.0f, 1280.0f);
 
   // Create shader
   spriteShader = std::make_unique<Shader>("shaders/sprite.vert", "shaders/sprite.frag");
@@ -96,7 +101,11 @@ void Game::processInput() {
   }
 
   if (input->wasWindowResized()) {
-    window->handleResize(input->getNewWindowWidth(), input->getNewWindowHeight());
+    int newWidth = input->getNewWindowWidth();
+    int newHeight = input->getNewWindowHeight();
+
+    window->handleResize(newWidth, newHeight);
+    camera->setViewportSize(newWidth, newHeight);
   }
 
   // Get movement from WASD/Arrow keys
@@ -113,6 +122,9 @@ void Game::update(float deltaTime) {
     enemy->update(deltaTime);
   }
 
+  // Center camera on player (with boundary clamping)
+  camera->centerOn(player->getPosition());
+
   // Clean up dead enemies
   removeDeadEntities();
 
@@ -125,16 +137,13 @@ void Game::update(float deltaTime) {
 void Game::render() {
   window->clear(0.1f, 0.1f, 0.2f);
 
-  int screenWidth = window->getWidth();
-  int screenHeight = window->getHeight();
-
   // Draw all enemies
   for (auto& enemy : enemies) {
-    enemy->render(*spriteShader, screenWidth, screenHeight);
+    enemy->render(*spriteShader, *camera);
   }
 
   // Draw player on top
-  player->render(*spriteShader, screenWidth, screenHeight);
+  player->render(*spriteShader, *camera);
   window->swapBuffers();
 }
 

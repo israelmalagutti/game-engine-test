@@ -1,5 +1,7 @@
 #include "Sprite.h"
-#include "Common.h"
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/vector_float3.hpp>
 
 Sprite::Sprite(Texture* texture) {
   this->texture = texture;
@@ -26,7 +28,7 @@ void Sprite::setupMesh() {
     0.0f, 1.0f, 0.0f, 1.0f, // top-left
     1.0f, 0.0f, 1.0f, 0.0f, // bottom-right
     0.0f, 0.0f, 0.0f, 0.0f, // bottom-left
-    //
+                            //
     0.0f, 1.0f, 0.0f, 1.0f, // top-left
     1.0f, 1.0f, 1.0f, 1.0f, // top-right
     1.0f, 0.0f, 1.0f, 0.0f, // bottom-right
@@ -39,7 +41,7 @@ void Sprite::setupMesh() {
 
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-  
+
   // Position attr
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
@@ -52,28 +54,26 @@ void Sprite::setupMesh() {
   glBindVertexArray(0);
 }
 
-void Sprite::draw(Shader& shader, int screenWidth, int screenHeight) {
+void Sprite::draw(Shader& shader, const Camera& camera) {
   shader.use();
 
-  // Create othographic projection matrix (2D)
-  // This maps pixel coordinates to OpenGL's -1 to 1 range
-  float projection[16] = {
-    2.0f / screenWidth, 0.0f, 0.0f, 0.0f,
-    0.0f, -2.0f / screenHeight, 0.0f, 0.0f,
-    0.0f, 0.0f, -1.0f, 0.0f,
-    -1.0f, 1.0f, 0.0f, 1.0f
-  };
+  int viewportWidth = camera.getViewportWidth();
+  int viewportHeight = camera.getViewportHeight();
+
+  // Orthographic projection
+  glm::mat4 projection = glm::ortho(
+    0.0f, static_cast<float>(viewportWidth),
+    static_cast<float>(viewportHeight), 0.0f
+  );
+
+  glm::mat4 view = camera.getViewMatrix();
 
   // Create model matrix (position and scale)
-  // For simplicity, weŕe doing this manually whithout a matrix library
-  float model[16] = {
-    size.x, 0.0f, 0.0f, 0.0f,
-    0.0f, size.y, 0.0f, 0.0f,
-    0.0f, 0.0f, 1.0f, 0.0f,
-    position.x, position.y, 0.0f, 1.0f
-  };
+  glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(position.x, position.y, 0.0f));
+  model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
 
   shader.setMat4("projection", projection);
+  shader.setMat4("view", view);
   shader.setMat4("model", model);
   shader.setInt("spriteTexture", 0);
 

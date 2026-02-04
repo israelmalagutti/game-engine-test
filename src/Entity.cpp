@@ -11,11 +11,10 @@ void Entity::update(float deltaTime) {
   (void)deltaTime;
 }
 
-void Entity::render(Shader& shader, int screenWidth, int screenHeight) {
+void Entity::render(Shader& shader, const Camera& camera) {
   // Base implementation does nothing
   (void)shader;
-  (void)screenWidth;
-  (void)screenHeight;
+  (void)camera;
 }
 
 void Entity::printInfo() const {

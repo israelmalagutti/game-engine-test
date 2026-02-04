@@ -26,9 +26,9 @@ void Enemy::update(float deltaTime) {
   }
 }
 
-void Enemy::render(Shader& shader, int screenWidth, int screenHeight) {
+void Enemy::render(Shader& shader, const Camera& camera) {
   if (!isActive) return;
-  sprite->draw(shader, screenWidth, screenHeight);
+  sprite->draw(shader, camera);
 }
 
 void Enemy::setTarget(const Vector2& targetPos) {

@@ -20,9 +20,9 @@ void Player::update(float deltaTime) {
   sprite->setPosition(position);
 }
 
-void Player::render(Shader& shader, int screenWidth, int screenHeight) {
+void Player::render(Shader& shader, const Camera& camera) {
   if (!isActive) return;
-  sprite->draw(shader, screenWidth, screenHeight);
+  sprite->draw(shader, camera);
 }
 
 void Player::move(const Vector2& direction) {

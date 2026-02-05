@@ -1,18 +1,16 @@
 #include "Shader.h"
+#include "FileWatcher.h"
 #include <filesystem>
 
 Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath)
   : programID(0),
-    vertexPath(vertexPath),
-    fragmentPath(fragmentPath)
+    watcher({vertexPath, fragmentPath})
 {
-  // Record initial modification times
-  vertexLastModified = getFileModTime(vertexPath);
-  fragmentLastModified = getFileModTime(fragmentPath);
+  const auto& paths = watcher.getPaths();
 
   // Read shader source codes
-  std::string vertexSource = readFile(vertexPath);
-  std::string fragmentSource = readFile(fragmentPath);
+  std::string vertexSource = readFile(paths[0]);
+  std::string fragmentSource = readFile(paths[1]);
 
   if (vertexSource.empty() || fragmentSource.empty()) {
     std::cerr << "Failed to read shader files!" << std::endl;
@@ -132,30 +130,12 @@ void Shader::setMat4(const std::string& name, const glm::mat4& matrix) {
   glUniformMatrix4fv(glGetUniformLocation(programID, name.c_str()), 1, GL_FALSE, glm::value_ptr(matrix));
 }
 
-namespace fs = std::filesystem;
-
-fs::file_time_type Shader::getFileModTime(const std::string& path) const {
-  try {
-    return fs::last_write_time(path);
-  } catch (const fs::filesystem_error& e) {
-    std::cerr << "Could not get mod time for: " << path << std::endl;
-    return fs::file_time_type::min();
-  }
-}
-
-bool Shader::hasFileChanged() const {
-  auto currentVertexTime = getFileModTime(vertexPath);
-  auto currentFragmentTime = getFileModTime(fragmentPath);
-
-  return currentVertexTime != vertexLastModified ||
-         currentFragmentTime != fragmentLastModified;
-}
-
 bool Shader::reload() {
-  std::cout << "Reloading shader: " << vertexPath << ", " << fragmentPath << std::endl;
+  const auto& paths = watcher.getPaths();
+  std::cout << "Reloading shader: " << paths[0] << ", " << paths[1] << std::endl;
 
-  std::string vertexSource = readFile(vertexPath);
-  std::string fragmentSource = readFile(fragmentPath);
+  std::string vertexSource = readFile(paths[0]);
+  std::string fragmentSource = readFile(paths[1]);
 
   if (vertexSource.empty() || fragmentSource.empty()) {
     std::cerr << "Hot-reload failed: Could not read shader files" << std::endl;
@@ -196,16 +176,14 @@ bool Shader::reload() {
   }
   programID = newProgram;
 
-  vertexLastModified = getFileModTime(vertexPath);
-  fragmentLastModified = getFileModTime(fragmentPath);
-
   std::cout << "Shader hot-reloaded successfully!" << std::endl;
   return true;
 }
 
 bool Shader::checkReload() {
-  if (hasFileChanged()) {
-    return reload();
+  if (watcher.hasChanged() && reload()) {
+    watcher.updateTimestamps();
+    return true;
   }
   return false;
 }

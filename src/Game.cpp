@@ -123,6 +123,11 @@ void Game::update(float deltaTime) {
   tileShader->checkReload();
   spriteShader->checkReload();
 
+  // Hot-reload textures
+  tilesetTexture->checkReload();
+  playerTexture->checkReload();
+  enemyTexture->checkReload();
+
   player->update(deltaTime);
 
   // Update all enemies and make them chase the player

@@ -13,6 +13,7 @@ This document explains hot-reloading — the technique for updating game assets 
 - [Shader Hot-Reload](#shader-hot-reload)
 - [Tilemap Hot-Reload](#tilemap-hot-reload)
 - [Graceful Failure](#graceful-failure)
+- [Abstracting Hot-Reload: FileWatcher](#abstracting-hot-reload-filewatcher)
 - [Why This Matters for HD-2D](#why-this-matters-for-hd-2d)
 
 ---
@@ -530,6 +531,216 @@ bool reload() {
 ```
 
 **Never** delete the old asset until the new one is fully loaded and validated.
+
+---
+
+## Abstracting Hot-Reload: FileWatcher
+
+Instead of duplicating file-watching logic in every reloadable class (Shader, Tilemap, Texture, etc.), we can extract it into a reusable **FileWatcher** utility.
+
+### The Problem
+
+Without abstraction, every reloadable asset has the same boilerplate:
+
+```
+Shader                              Tilemap
+├── std::string path                ├── std::string path
+├── file_time_type lastModified     ├── file_time_type lastModified
+├── getFileModTime()                ├── getFileModTime()        ← Duplicated!
+├── hasFileChanged()                ├── hasFileChanged()        ← Duplicated!
+└── checkReload()                   └── checkReload()           ← Duplicated!
+```
+
+### The Solution: Composition
+
+Create a `FileWatcher` class that handles all the file-watching logic. Any class that wants hot-reload just holds a FileWatcher instance.
+
+```
+FileWatcher (reusable utility)
+├── std::vector<std::string> paths
+├── std::vector<file_time_type> lastModified
+├── hasChanged() → bool
+└── updateTimestamps()
+
+Shader                              Tilemap
+├── FileWatcher watcher             ├── FileWatcher watcher
+├── reload() ← asset-specific       ├── reload() ← asset-specific
+└── checkReload() {                 └── checkReload() {
+      if (watcher.hasChanged()) {         if (watcher.hasChanged()) {
+        if (reload())                       if (reload())
+          watcher.updateTimestamps();         watcher.updateTimestamps();
+      }                                   }
+    }                                   }
+```
+
+### FileWatcher Class
+
+```cpp
+// FileWatcher.h
+#pragma once
+
+#include <filesystem>
+#include <string>
+#include <vector>
+
+namespace fs = std::filesystem;
+
+class FileWatcher {
+private:
+    std::vector<std::string> paths;
+    std::vector<fs::file_time_type> lastModified;
+
+    fs::file_time_type getModTime(const std::string& path) const {
+        try {
+            return fs::last_write_time(path);
+        } catch (const fs::filesystem_error&) {
+            return fs::file_time_type::min();
+        }
+    }
+
+public:
+    // Watch a single file
+    FileWatcher(const std::string& path) {
+        paths.push_back(path);
+        lastModified.push_back(getModTime(path));
+    }
+
+    // Watch multiple files (e.g., vertex + fragment shader)
+    FileWatcher(const std::vector<std::string>& filePaths) {
+        for (const auto& path : filePaths) {
+            paths.push_back(path);
+            lastModified.push_back(getModTime(path));
+        }
+    }
+
+    // Check if ANY watched file has changed
+    bool hasChanged() const {
+        for (size_t i = 0; i < paths.size(); i++) {
+            if (getModTime(paths[i]) != lastModified[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Update timestamps after successful reload
+    void updateTimestamps() {
+        for (size_t i = 0; i < paths.size(); i++) {
+            lastModified[i] = getModTime(paths[i]);
+        }
+    }
+
+    // Get watched paths (for logging)
+    const std::vector<std::string>& getPaths() const {
+        return paths;
+    }
+};
+```
+
+### Using FileWatcher in Shader
+
+```cpp
+class Shader {
+private:
+    GLuint programID;
+    FileWatcher watcher;  // Composition, not inheritance
+
+public:
+    Shader(const std::string& vertexPath, const std::string& fragmentPath)
+        : programID(0),
+          watcher({vertexPath, fragmentPath})  // Watch both files
+    {
+        // Initial compilation...
+    }
+
+    bool reload() {
+        // Asset-specific reload logic
+        // Compile new shaders, link, swap...
+        return success;
+    }
+
+    bool checkReload() {
+        if (watcher.hasChanged()) {
+            if (reload()) {
+                watcher.updateTimestamps();
+                return true;
+            }
+        }
+        return false;
+    }
+};
+```
+
+### Using FileWatcher in Tilemap
+
+```cpp
+class Tilemap {
+private:
+    std::vector<int> tiles;
+    FileWatcher watcher;
+
+public:
+    Tilemap(const std::string& csvPath, int tileSize, Texture* tileset)
+        : watcher(csvPath)  // Watch single file
+    {
+        loadFromCSV(csvPath);
+    }
+
+    bool reload() {
+        // Asset-specific: re-parse CSV, update tiles vector
+        return loadFromCSV(watcher.getPaths()[0]);
+    }
+
+    bool checkReload() {
+        if (watcher.hasChanged()) {
+            if (reload()) {
+                watcher.updateTimestamps();
+                return true;
+            }
+        }
+        return false;
+    }
+};
+```
+
+### Web Development Analogy
+
+This is like extracting a React hook or a utility function:
+
+```javascript
+// Instead of duplicating fetch logic in every component...
+// You create a reusable hook:
+
+function useFileWatcher(paths) {
+    const [changed, setChanged] = useState(false);
+    // ... watching logic
+    return { changed, acknowledge };
+}
+
+// Then use it anywhere:
+function ShaderEditor() {
+    const watcher = useFileWatcher(['vertex.glsl', 'fragment.glsl']);
+    if (watcher.changed) reloadShader();
+}
+
+function TilemapEditor() {
+    const watcher = useFileWatcher(['map.csv']);
+    if (watcher.changed) reloadMap();
+}
+```
+
+### Benefits of Composition
+
+| Aspect | Without FileWatcher | With FileWatcher |
+|--------|---------------------|------------------|
+| Code duplication | File watching in every class | Written once |
+| Testing | Test each class separately | Test FileWatcher once |
+| Flexibility | Fixed to one pattern | Can watch 1 or N files |
+| Maintenance | Fix bugs in multiple places | Fix in one place |
+
+### When NOT to Use FileWatcher
+
+If a class has **special** file-watching needs (e.g., watching a directory instead of files, or needing file content hashes instead of timestamps), it can implement its own logic. FileWatcher is for the common case.
 
 ---
 

@@ -25,6 +25,11 @@ void Player::render(Shader& shader, const Camera& camera) {
   sprite->draw(shader, camera);
 }
 
+void Player::setPosition(const Vector2& pos) {
+  position = pos;
+  sprite->setPosition(position);
+}
+
 void Player::move(const Vector2& direction) {
   velocity = direction;
 }

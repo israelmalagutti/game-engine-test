@@ -5,6 +5,13 @@
 #include "Sprite.h"
 #include "Shader.h"
 
+struct EnemySpawn {
+  std::string name;
+  float x, y;
+  int damage;
+  float speed;
+};
+
 class Enemy : public Entity {
 private:
   int damage;

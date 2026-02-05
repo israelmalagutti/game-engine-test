@@ -15,6 +15,7 @@ private:
   Vector2 velocity;
   std::unique_ptr<Sprite> sprite;
 
+
 public:
   Player(float x, float y, Texture* texture);
 
@@ -22,7 +23,7 @@ public:
   void update(float deltaTime) override;
   void render(Shader& shader, const Camera& camera) override;
 
-  // Player-specific methods
+  void setPosition(const Vector2& pos);
   void move(const Vector2& direction);
   void takeDamage(int damage);
   void heal(int amount);

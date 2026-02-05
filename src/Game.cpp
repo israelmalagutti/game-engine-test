@@ -4,8 +4,10 @@
 #include <memory>
 
 #include "Game.h"
-#include "Camera.h"
+#include "Location.h"
 #include "Tilemap.h"
+#include "Vector2.h"
+#include "WarpZone.h"
 
 Game::Game() {
   isRunning = false;
@@ -34,8 +36,10 @@ Game::Game() {
   playerTexture = std::make_unique<Texture>("assets/player.png");
   enemyTexture = std::make_unique<Texture>("assets/enemy.png");
 
-  // Create player
-  tilemap = std::make_unique<Tilemap>(10, 10, 32, tilesetTexture.get());
+  setupLocations();
+  currentLocation = locations["farm"].get();
+  currentLocation->onEnter();
+
   player = std::make_unique<Player>(400.0f, 300.0f, playerTexture.get());
 
   std::cout << "=== Game Intiliazed ===" << std::endl;
@@ -43,6 +47,161 @@ Game::Game() {
 
 Game::~Game() {
   std::cout << "=== Game destroyed ===" << std::endl;
+}
+
+
+void Game::setupLocations() {
+  auto farm = std::make_unique<Location>(
+      "farm", 60, 34, 32, tilesetTexture.get()
+  );
+  farm->addWarp(1888, 0, 32, 1088, "town", Vector2(50, 540));
+  locations["farm"] = std::move(farm);
+
+  auto town = std::make_unique<Location>(
+      "town", 80, 40, 32, tilesetTexture.get()
+  );
+  town->addWarp(0, 0, 32, 1280, "farm", Vector2(1800,540));
+  locations["town"] = std::move(town);
+}
+
+
+void Game::render() {
+  window->clear(0.1f, 0.1f, 0.2f);
+  currentLocation->render(*tileShader, *camera);
+
+  // Draw all enemies
+  for (auto& enemy : enemies) {
+    enemy->render(*spriteShader, *camera);
+  }
+
+  // Draw player on top
+  player->render(*spriteShader, *camera);
+  window->swapBuffers();
+}
+
+void Game::update(float deltaTime) {
+  // Hot-reload shaders
+  tileShader->checkReload();
+  spriteShader->checkReload();
+
+  // Hot-reload textures
+  tilesetTexture->checkReload();
+  playerTexture->checkReload();
+  enemyTexture->checkReload();
+
+  player->update(deltaTime);
+
+  // Update all enemies and make them chase the player
+  for (auto& enemy : enemies) {
+    enemy->setTarget(player->getPosition());
+    enemy->update(deltaTime);
+  }
+
+  checkWarpCollisions();
+
+  // Center camera on player (with boundary clamping)
+  camera->setWorldBounds(
+      0, 0,
+      currentLocation->getWorldWidth(),
+      currentLocation->getWorldHeight()
+  );
+  camera->centerOn(player->getPosition());
+
+  // Clean up dead enemies
+  removeDeadEntities();
+
+  if (player->isDead()) {
+    std::cout << "GAME OVER!" << std::endl;
+    stop();
+  }
+}
+
+void Game::run() {
+  isRunning = true;
+  lastFrameTime = SDL_GetTicks();
+
+  // Spawn some enemies
+  spawnEnemy("Goblin", 100.0f, 100.0f, 10, 30.0f);
+  spawnEnemy("Orc", 700.0f, 500.0f, 25, 20.0f);
+  spawnEnemy("Skeleton", 50.0f, 400.0f, 15, 40.0f);
+
+  while (window->isOpen() && isRunning) {
+    // Calculate delta time
+    Uint32 currentTime = SDL_GetTicks();
+    float deltaTime = (currentTime - lastFrameTime) / 1000.f;
+    lastFrameTime = currentTime;
+
+    if (deltaTime > 0.1f) {
+      deltaTime = 0.1f;
+    }
+
+    processInput();
+    update(deltaTime);
+    render();
+
+    changeLocation();
+  }
+}
+
+void Game::stop() {
+  isRunning = false;
+}
+
+void Game::checkWarpCollisions() {
+  const WarpZone* warp = currentLocation->checkWarpCollisions(player->getPosition());
+
+  if (warp != nullptr) {
+    changeLocationRequest(warp->destinationId, warp->spawnPosition);
+  }
+}
+
+void Game::changeLocationRequest(const std::string& id, const Vector2& spawnPos) {
+  pendingLocationId = id;
+  pendingSpawnPosition = spawnPos;
+  locationChangeRequested = true;
+}
+
+void Game::changeLocation() {
+  if (!locationChangeRequested) return;
+
+  auto it = locations.find(pendingLocationId);
+  if(it == locations.end()) {
+    std::cerr << "Location not found" << pendingLocationId << std::endl;
+    locationChangeRequested = false;
+    return;
+  }
+
+  currentLocation->onExit();
+  currentLocation = it->second.get();
+  currentLocation->onEnter();
+
+  player->setPosition(pendingSpawnPosition);
+  locationChangeRequested = false;
+}
+
+void Game::processInput() {
+  input->update();
+
+  if (input->isQuitRequested()) {
+    stop();
+    return;
+  }
+
+  if (input->wasWindowResized()) {
+    int newWidth = input->getNewWindowWidth();
+    int newHeight = input->getNewWindowHeight();
+
+    window->handleResize(newWidth, newHeight);
+    camera->setViewportSize(newWidth, newHeight);
+  }
+
+  // Get movement from WASD/Arrow keys
+  Vector2 movement = input->getMovementInput();
+  player->move(movement);
+}
+
+bool Game::getIsRunning() const {
+  return isRunning;
 }
 
 void Game::spawnEnemy(const std::string& name, float x, float y, int damage, float speed) {
@@ -68,100 +227,3 @@ void Game::removeDeadEntities() {
   );
 }
 
-void Game::run() {
-  isRunning = true;
-  lastFrameTime = SDL_GetTicks();
-
-  // Spawn some enemies
-  spawnEnemy("Goblin", 100.0f, 100.0f, 10, 30.0f);
-  spawnEnemy("Orc", 700.0f, 500.0f, 25, 20.0f);
-  spawnEnemy("Skeleton", 50.0f, 400.0f, 15, 40.0f);
-
-  while (window->isOpen() && isRunning) {
-    // Calculate delta time
-    Uint32 currentTime = SDL_GetTicks();
-    float deltaTime = (currentTime - lastFrameTime) / 1000.f;
-    lastFrameTime = currentTime;
-
-    if (deltaTime > 0.1f) {
-      deltaTime = 0.1f;
-    }
-
-    processInput();
-    update(deltaTime);
-    render();
-  }
-}
-
-void Game::stop() {
-  isRunning = false;
-}
-
-void Game::processInput() {
-  input->update();
-
-  if (input->isQuitRequested()) {
-    stop();
-    return;
-  }
-
-  if (input->wasWindowResized()) {
-    int newWidth = input->getNewWindowWidth();
-    int newHeight = input->getNewWindowHeight();
-
-    window->handleResize(newWidth, newHeight);
-    camera->setViewportSize(newWidth, newHeight);
-  }
-
-  // Get movement from WASD/Arrow keys
-  Vector2 movement = input->getMovementInput();
-  player->move(movement);
-}
-
-void Game::update(float deltaTime) {
-  // Hot-reload shaders
-  tileShader->checkReload();
-  spriteShader->checkReload();
-
-  // Hot-reload textures
-  tilesetTexture->checkReload();
-  playerTexture->checkReload();
-  enemyTexture->checkReload();
-
-  player->update(deltaTime);
-
-  // Update all enemies and make them chase the player
-  for (auto& enemy : enemies) {
-    enemy->setTarget(player->getPosition());
-    enemy->update(deltaTime);
-  }
-
-  // Center camera on player (with boundary clamping)
-  camera->centerOn(player->getPosition());
-
-  // Clean up dead enemies
-  removeDeadEntities();
-
-  if (player->isDead()) {
-    std::cout << "GAME OVER!" << std::endl;
-    stop();
-  }
-}
-
-void Game::render() {
-  window->clear(0.1f, 0.1f, 0.2f);
-  tilemap->render(*tileShader, *camera);
-
-  // Draw all enemies
-  for (auto& enemy : enemies) {
-    enemy->render(*spriteShader, *camera);
-  }
-
-  // Draw player on top
-  player->render(*spriteShader, *camera);
-  window->swapBuffers();
-}
-
-bool Game::getIsRunning() const {
-  return isRunning;
-}

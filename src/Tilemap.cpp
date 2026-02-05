@@ -126,6 +126,10 @@ int Tilemap::getTile(int x, int y) const {
   return tiles[y * width + x];
 }
 
+int Tilemap::getTileCountX() const { return width; }
+int Tilemap::getTileCountY() const { return height; }
+int Tilemap::getTileSize()   const { return tileSize; }
+
 void Tilemap::setTile(int x, int y, int tileID) {
   int tile = getTile(x, y);
   tiles[tile] = tileID;

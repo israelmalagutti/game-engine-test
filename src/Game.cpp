@@ -5,6 +5,7 @@
 
 #include "Game.h"
 #include "Camera.h"
+#include "Tilemap.h"
 
 Game::Game() {
   isRunning = false;
@@ -20,17 +21,21 @@ Game::Game() {
   camera = std::make_unique<Camera>(1920, 1080);
   camera->setWorldBounds(0.0f, 0.0f, 2400.0f, 1280.0f);
 
-  // Create shader
+  // Create shaders
+  tileShader = std::make_unique<Shader>("shaders/tile.vert", "shaders/tile.frag");
   spriteShader = std::make_unique<Shader>("shaders/sprite.vert", "shaders/sprite.frag");
 
   // Create input handler
   input = std::make_unique<Input>();
 
   // Load Textures
+  tilesetTexture = std::make_unique<Texture>("assets/tile.png");
+
   playerTexture = std::make_unique<Texture>("assets/player.png");
   enemyTexture = std::make_unique<Texture>("assets/enemy.png");
 
   // Create player
+  tilemap = std::make_unique<Tilemap>(10, 10, 32, tilesetTexture.get());
   player = std::make_unique<Player>(400.0f, 300.0f, playerTexture.get());
 
   std::cout << "=== Game Intiliazed ===" << std::endl;
@@ -136,6 +141,7 @@ void Game::update(float deltaTime) {
 
 void Game::render() {
   window->clear(0.1f, 0.1f, 0.2f);
+  tilemap->render(*tileShader, *camera);
 
   // Draw all enemies
   for (auto& enemy : enemies) {

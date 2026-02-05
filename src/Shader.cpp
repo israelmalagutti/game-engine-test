@@ -1,6 +1,4 @@
 #include "Shader.h"
-#include "Common.h"
-#include <glm/gtc/type_ptr.hpp>
 
 Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath) {
   programID = 0;
@@ -108,6 +106,11 @@ void Shader::setFloat(const std::string& name, float value) {
 
 void Shader::setVec2(const std::string& name, float x, float y) {
   glUniform2f(glGetUniformLocation(programID, name.c_str()), x, y);
+}
+
+// Overload for new model using glm::vec2
+void Shader::setVec2(const std::string& name, const glm::vec2& value) {
+  glUniform2fv(glGetUniformLocation(programID, name.c_str()), 1, &value[0]);
 }
 
 void Shader::setVec3(const std::string& name, float x, float y, float z) {

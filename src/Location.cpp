@@ -47,9 +47,9 @@ const WarpZone* Location::checkWarpCollisions(const Vector2& position) const {
 const std::string& Location::getId() const { return id; }
 
 int Location::getWorldWidth() const {
-  return tilemap->getTileCountX();
+  return tilemap->getTileCountX() * tilemap->getTileSize();
 }
 
 int Location::getWorldHeight() const {
-  return tilemap->getTileCountY();
+  return tilemap->getTileCountY() * tilemap->getTileSize();
 }

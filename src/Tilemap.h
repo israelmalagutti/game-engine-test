@@ -7,30 +7,34 @@
 
 class Tilemap {
   private:
-  int width, height, tileSize;
+    int width, height, tileSize;
 
-  std::vector<int> tiles;    // Grounds layer
-  // std::vector<int> objects; // Objects layer
+    std::vector<int> tiles;    // Grounds layer
+    // std::vector<int> objects; // Objects layer
 
-  Texture* tileset;
-  int tilesPerRow;
+    Texture* tileset;
+    int tilesPerRow;
 
-  GLuint VAO, VBO;
+    GLuint VAO, VBO;
 
-  void setupMesh();
-  
+    void setupMesh();
+
   public:
     Tilemap(int width, int height, int tileSize, Texture* tileset);
     ~Tilemap();
 
     void render(Shader& shader, const  Camera& camera);
-    
+
     // Collisions
     bool isWalkable(int tileX, int tileY) const;
     bool isSolid(int tileX, int tileY) const;
 
     // Getters
     int getTile(int x, int y) const;
+    int getTileCountX() const;
+    int getTileCountY() const;
+    int getTileSize()   const;
+
 
     // Setters
     void setTile(int x, int y, int tileID);

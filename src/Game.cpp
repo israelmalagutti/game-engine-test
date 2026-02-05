@@ -119,6 +119,10 @@ void Game::processInput() {
 }
 
 void Game::update(float deltaTime) {
+  // Hot-reload shaders
+  tileShader->checkReload();
+  spriteShader->checkReload();
+
   player->update(deltaTime);
 
   // Update all enemies and make them chase the player

@@ -22,6 +22,10 @@ void Location::render(Shader& tileShader, const Camera& camera) {
   tilemap->render(tileShader, camera);
 }
 
+void Location::renderDebug(Shader& debugShader, const Camera& camera) {
+  tilemap->renderDebug(debugShader, camera);
+}
+
 // void Location::update() {}
 
 void Location::addWarp(float x, float y, float w, float h,

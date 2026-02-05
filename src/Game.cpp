@@ -1,3 +1,4 @@
+#include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_timer.h>
 #include <algorithm>
@@ -11,6 +12,7 @@
 
 Game::Game() {
   isRunning = false;
+  debugMode = false;
 
   //  Create window
   window = std::make_unique<Window>("Game Engine", 1920, 1080);
@@ -26,6 +28,7 @@ Game::Game() {
   // Create shaders
   tileShader = std::make_unique<Shader>("shaders/tile.vert", "shaders/tile.frag");
   spriteShader = std::make_unique<Shader>("shaders/sprite.vert", "shaders/sprite.frag");
+  debugLineShader = std::make_unique<Shader>("shaders/debug_line.vert", "shaders/debug_line.frag");
 
   // Create input handler
   input = std::make_unique<Input>();
@@ -76,6 +79,12 @@ void Game::render() {
 
   // Draw player on top
   player->render(*spriteShader, *camera);
+
+  // Debug overlay
+  if (debugMode) {
+    currentLocation->renderDebug(*debugLineShader, *camera);
+  }
+
   window->swapBuffers();
 }
 
@@ -193,6 +202,12 @@ void Game::processInput() {
 
     window->handleResize(newWidth, newHeight);
     camera->setViewportSize(newWidth, newHeight);
+  }
+
+  // Toggle debug mode
+  if (input->wasKeyPressed(SDLK_F3)) {
+    debugMode = !debugMode;
+    std::cout << "Debug mode: " << (debugMode ? "ON" : "OFF") << std::endl;
   }
 
   // Get movement from WASD/Arrow keys

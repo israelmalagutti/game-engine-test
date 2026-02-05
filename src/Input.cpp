@@ -15,6 +15,7 @@ Input::Input() {
 void Input::update() {
   SDL_Event event;
   windowResized = false;
+  keysJustPressed.clear();
 
   while (SDL_PollEvent(&event)) {
     if (event.type == SDL_QUIT) {
@@ -24,6 +25,10 @@ void Input::update() {
     if (event.type == SDL_KEYDOWN) {
       if (event.key.keysym.sym == SDLK_ESCAPE) {
         quitRequested = true;
+      }
+
+      if (!event.key.repeat) {
+        keysJustPressed.insert(event.key.keysym.sym);
       }
     }
 
@@ -42,6 +47,10 @@ void Input::update() {
 
 bool Input::isKeyDown(SDL_Scancode key) const {
   return keyboardState[key] != 0;
+}
+
+bool Input::wasKeyPressed(SDL_Keycode key) const {
+  return keysJustPressed.count(key) > 0;
 }
 
 bool Input::isQuitRequested() const {

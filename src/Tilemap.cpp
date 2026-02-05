@@ -16,20 +16,26 @@ Tilemap::Tilemap(int width, int height, int tileSize, Texture* tileset)
     tileSize(tileSize),
     tileset(tileset),
     VAO(0),
-    VBO(0)
+    VBO(0),
+    debugVAO(0),
+    debugVBO(0),
+    debugLineCount(0)
 {
   this->tilesPerRow = tileset->getWidth() / tileSize;
 
   // Allocate tile data
   tiles.resize(width * height, 0);
-  
+
   // Set OpenGL Buffers
   setupMesh();
+  setupDebugMesh();
 }
 
 Tilemap::~Tilemap() {
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);
+  glDeleteVertexArrays(1, &debugVAO);
+  glDeleteBuffers(1, &debugVBO);
 }
 
 void Tilemap::render(Shader& shader, const Camera& camera) {
@@ -133,4 +139,73 @@ int Tilemap::getTileSize()   const { return tileSize; }
 void Tilemap::setTile(int x, int y, int tileID) {
   int tile = getTile(x, y);
   tiles[tile] = tileID;
+}
+
+void Tilemap::setupDebugMesh() {
+  std::vector<float> lineVertices;
+
+  float mapWidth = width * tileSize;
+  float mapHeight = height * tileSize;
+
+  // Horizontal lines (height + 1 lines)
+  for (int y = 0; y <= height; y++) {
+    float yPos = y * tileSize;
+    // Start point
+    lineVertices.push_back(0.0f);
+    lineVertices.push_back(yPos);
+    // End point
+    lineVertices.push_back(mapWidth);
+    lineVertices.push_back(yPos);
+  }
+
+  // Vertical lines (width + 1 lines)
+  for (int x = 0; x <= width; x++) {
+    float xPos = x * tileSize;
+    // Start point
+    lineVertices.push_back(xPos);
+    lineVertices.push_back(0.0f);
+    // End point
+    lineVertices.push_back(xPos);
+    lineVertices.push_back(mapHeight);
+  }
+
+  debugLineCount = (height + 1 + width + 1) * 2;  // 2 vertices per line
+
+  glGenVertexArrays(1, &debugVAO);
+  glGenBuffers(1, &debugVBO);
+
+  glBindVertexArray(debugVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
+  glBufferData(GL_ARRAY_BUFFER, lineVertices.size() * sizeof(float), lineVertices.data(), GL_STATIC_DRAW);
+
+  // Position attribute (vec2)
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+}
+
+void Tilemap::renderDebug(Shader& debugShader, const Camera& camera) {
+  debugShader.use();
+
+  // Projection & view
+  glm::mat4 projection = glm::ortho(
+      0.0f, static_cast<float>(camera.getViewportWidth()),
+      static_cast<float>(camera.getViewportHeight()), 0.0f
+  );
+  glm::mat4 view = camera.getViewMatrix();
+
+  debugShader.setMat4("projection", projection);
+  debugShader.setMat4("view", view);
+  debugShader.setVec3("lineColor", 1.0f, 1.0f, 1.0f);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glBindVertexArray(debugVAO);
+  glDrawArrays(GL_LINES, 0, debugLineCount);
+  glBindVertexArray(0);
+
+  glDisable(GL_BLEND);
 }

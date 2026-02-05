@@ -16,14 +16,18 @@ class Tilemap {
     int tilesPerRow;
 
     GLuint VAO, VBO;
+    GLuint debugVAO, debugVBO;
+    int debugLineCount;
 
     void setupMesh();
+    void setupDebugMesh();
 
   public:
     Tilemap(int width, int height, int tileSize, Texture* tileset);
     ~Tilemap();
 
-    void render(Shader& shader, const  Camera& camera);
+    void render(Shader& shader, const Camera& camera);
+    void renderDebug(Shader& debugShader, const Camera& camera);
 
     // Collisions
     bool isWalkable(int tileX, int tileY) const;

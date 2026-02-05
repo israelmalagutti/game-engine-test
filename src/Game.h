@@ -22,6 +22,7 @@ private:
 
   std::unique_ptr<Shader> tileShader;
   std::unique_ptr<Shader> spriteShader;
+  std::unique_ptr<Shader> debugLineShader;
 
   std::unique_ptr<Texture> tilesetTexture;
   std::unique_ptr<Texture> playerTexture;
@@ -35,6 +36,7 @@ private:
 
   // Game loop
   bool isRunning;
+  bool debugMode;
   Uint32 lastFrameTime;
 
   void processInput();

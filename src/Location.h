@@ -32,6 +32,7 @@ class Location {
 
     // Game loop
     void render(Shader& tileShader, const Camera& camera);
+    void renderDebug(Shader& debugShader, const Camera& camera);
     // void update();
 
     // Warp zones

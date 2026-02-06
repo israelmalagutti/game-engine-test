@@ -1,9 +1,10 @@
 #include "Sprite.h"
+#include "Vector2.h"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_float3.hpp>
 
-Sprite::Sprite(Texture* texture) {
+Sprite::Sprite(Texture* texture) : uvOffset(0, 0), uvSize(1, 1) {
   this->texture = texture;
   this->position = Vector2(0, 0);
   this->size = Vector2(texture->getWidth(), texture->getHeight());
@@ -20,6 +21,19 @@ Sprite::~Sprite() {
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);
   glDeleteBuffers(1, &EBO);
+}
+
+void Sprite::setUVRegion(const Vector2& offset, const Vector2& size) {
+  uvOffset = offset;
+  uvSize = size;
+}
+
+void Sprite::setUVRegionPixels(float x, float y, float width, float height) {
+  float texW = static_cast<float>(texture->getWidth());
+  float texH = static_cast<float>(texture->getHeight());
+
+  uvOffset = Vector2(x / texW, y /texH);
+  uvSize   = Vector2(width /texW, height / texH);
 }
 
 void Sprite::setupMesh() {
@@ -75,6 +89,8 @@ void Sprite::draw(Shader& shader, const Camera& camera) {
   shader.setMat4("projection", projection);
   shader.setMat4("view", view);
   shader.setMat4("model", model);
+  shader.setVec2("uvOffset", uvOffset.x, uvOffset.y);
+  shader.setVec2("uvSize", uvSize.x, uvSize.y);
   shader.setInt("spriteTexture", 0);
 
   texture->bind(0);

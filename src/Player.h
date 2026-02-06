@@ -4,6 +4,8 @@
 #include "Entity.h"
 #include "Sprite.h"
 #include "Shader.h"
+#include "SpriteAnimator.h"
+#include <memory>
 
 class Player : public Entity {
 private:
@@ -12,9 +14,10 @@ private:
 
   float speed;
 
+
   Vector2 velocity;
   std::unique_ptr<Sprite> sprite;
-
+  std::unique_ptr<SpriteAnimator> animator;
 
 public:
   Player(float x, float y, Texture* texture);

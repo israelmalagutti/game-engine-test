@@ -6,5 +6,7 @@ out vec4 FragColor;
 uniform sampler2D spriteTexture;
 
 void main() {
-  FragColor = texture(spriteTexture, TexCoord);
+  vec4 texel = texture(spriteTexture, TexCoord);
+  if (texel.a < 0.01) discard;
+  FragColor = texel;
 }

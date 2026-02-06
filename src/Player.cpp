@@ -8,6 +8,10 @@ Player::Player(float x, float y, Texture* texture) : Entity("Player", x, y) {
 
   sprite = std::make_unique<Sprite>(texture);
   sprite->setSize(Vector2(64, 64));
+
+  animator = std::make_unique<SpriteAnimator>(sprite.get(), texture, 16, 32);
+  animator->addAnimation({ "idle_down", 0, 4, 0.15f, true });
+  animator->play("idle_down");
 }
 
 void Player::update(float deltaTime) {
@@ -16,8 +20,8 @@ void Player::update(float deltaTime) {
   position = position + velocity * speed * deltaTime;
   velocity = Vector2(0, 0);
 
-  // Update sprite position to match entity
   sprite->setPosition(position);
+  animator->update(deltaTime);
 }
 
 void Player::render(Shader& shader, const Camera& camera) {

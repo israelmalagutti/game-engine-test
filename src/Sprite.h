@@ -14,6 +14,9 @@ class Sprite{
 
     Texture* texture;
     Vector2 position;
+    Vector2 uvOffset;
+    Vector2 uvSize;
+
     Vector2 size;
     float rotation;
 
@@ -24,6 +27,9 @@ class Sprite{
     ~Sprite();
 
     void draw(Shader& shader, const Camera& camera);
+
+    void setUVRegion(const Vector2& offset, const Vector2& size);
+    void setUVRegionPixels(float x, float y, float width, float height);
 
     void setPosition(const Vector2& pos);
     void setSize(const Vector2& size);
